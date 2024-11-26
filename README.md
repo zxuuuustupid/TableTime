@@ -9,4 +9,14 @@
 🌟 If you find this resource helpful, please consider to star this repository and cite our research, thank you!
 
 
+
+---
+Illustration of the TableTime, i.e., a paradigm for MTSC based on table understanding
+
 <img width="1081" alt="image" src="https://github.com/realwangjiahao/TableTime/blob/main/pic/main.png">
+
+
+---
+Main Results
+
+<img width="1081" alt="image" src="https://github.com/realwangjiahao/TableTime/blob/main/pic/result.png">
