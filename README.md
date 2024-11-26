@@ -20,3 +20,14 @@ Illustration of the TableTime, i.e., a paradigm for MTSC based on table understa
 Main Results
 
 <img width="1081" alt="image" src="https://github.com/realwangjiahao/TableTime/blob/main/pic/result.png">
+
+---
+Details
+
+api.py refers to the file that uses the API to obtain LLM answers
+
+dataset_index.py refers to the file that gets the dataset index
+
+neighbor_find.py refers to the function of getting the neighbor index
+
+ts_encoding.py refers to the file that gets the data encoding
