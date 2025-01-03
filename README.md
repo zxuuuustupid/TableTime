@@ -6,7 +6,7 @@
 
 🙋 Please let us know if you find out a mistake or have any suggestions!
 
-🌟 If you find this resource helpful, please consider to star this repository and cite our research, thank you!
+🌟 If you find this resource helpful, please consider to star this repository and cite our research, thank you! You may cite this paper as the follows:
 
 ```tex
 @article{wang2024tabletime,
