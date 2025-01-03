@@ -8,7 +8,14 @@
 
 🌟 If you find this resource helpful, please consider to star this repository and cite our research, thank you!
 
-
+```tex
+@article{wang2024tabletime,
+  title={TableTime: Reformulating Time Series Classification as Zero-Shot Table Understanding via Large Language Models},
+  author={Wang, Jiahao and Cheng, Mingyue and Mao, Qingyang and Liu, Qi and Xu, Feiyang and Li, Xin and Chen, Enhong},
+  journal={arXiv preprint arXiv:2411.15737},
+  year={2024}
+}
+```
 
 ---
 Illustration of the TableTime, i.e., a paradigm for MTSC based on table understanding
