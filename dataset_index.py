@@ -1,10 +1,10 @@
 import numpy as np
 import json
 
-x_train=np.load(r'H:\ts_llm\data\ArticularyWordRecognition\X_train.npy',mmap_mode='c')
-x_valid=np.load(r'H:\ts_llm\data\ArticularyWordRecognition\X_valid.npy',mmap_mode='c')
-y_train=np.load(r'H:\ts_llm\data\ArticularyWordRecognition\y_train.npy',mmap_mode='c')
-y_valid=np.load(r'H:\ts_llm\data\ArticularyWordRecognition\y_valid.npy',mmap_mode='c')
+x_train=np.load('data/FingerMovements/X_train.npy',mmap_mode='c')
+x_valid=np.load('data/FingerMovements/X_valid.npy',mmap_mode='c')
+y_train=np.load('data/FingerMovements/y_train.npy',mmap_mode='c')
+y_valid=np.load('data/FingerMovements/y_valid.npy',mmap_mode='c')
 
 train_index=[]
 test_index=[]
