@@ -47,8 +47,8 @@ def find_nearest_neighbors_MAN(train_data,test_data,num_neighbors):
     return result
 
 dataset='RacketSports'
-train_data=np.load(f'H:/ts_llm/data/{dataset}/X_train.npy', mmap_mode='c')
-test_data=np.load(f'H:/ts_llm/data/{dataset}/X_valid.npy', mmap_mode='c')
+train_data=np.load(f'data/{dataset}/X_train.npy', mmap_mode='c')
+test_data=np.load(f'data/{dataset}/X_valid.npy', mmap_mode='c')
 
 dist={'DTW':find_nearest_neighbors_DTW,'ED':find_nearest_neighbors_ED,
       'SED':find_nearest_neighbors_standard_ED,'MAN':find_nearest_neighbors_MAN}
@@ -56,5 +56,5 @@ dist={'DTW':find_nearest_neighbors_DTW,'ED':find_nearest_neighbors_ED,
 for i in ['DTW','ED','SED','MAN']:
     for j in [1,2,3,4,5,6,7,8,9,10]:
         result=dist[i](train_data,test_data,num_neighbors=j)
-        with open(f'H:/ts_llm/data_index/{dataset}/{i}_dist/nearest_{j}_neighbors.json', 'w') as f:
+        with open(f'data_index/{dataset}/{i}_dist/nearest_{j}_neighbors.json', 'w') as f:
             json.dump(result,f,indent=4)
