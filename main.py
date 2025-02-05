@@ -15,11 +15,11 @@ number_dict={1:'closest',2:'second',3:'third',4:'fourth',5:'fifth',6:'sixth',7:'
 class FM_PD(nn.Module):
     def __init__(self, dataset, dist, nei_number, encoding_style, channel_list, api, itr,llm_name,temperature,top_p,max_tokens):
         super(FM_PD, self).__init__()
-        self.x_train = np.load(f'/data/realwangjiahao/ts_llm/data/{dataset}/X_train.npy', mmap_mode='c')
-        self.y_train = np.load(f'/data/realwangjiahao/ts_llm/data/{dataset}/y_train.npy', mmap_mode='c')
-        self.x_test = np.load(f'/data/realwangjiahao/ts_llm/data/{dataset}/X_valid.npy', mmap_mode='c')
-        self.y_test = np.load(f'/data/realwangjiahao/ts_llm/data/{dataset}/y_valid.npy', mmap_mode='c')  
-        with open(f'/data/realwangjiahao/ts_llm/data_index/{dataset}/{dist}_dist/nearest_{nei_number}_neighbors.json',
+        self.x_train = np.load(f'data/{dataset}/X_train.npy', mmap_mode='c')
+        self.y_train = np.load(f'data/{dataset}/y_train.npy', mmap_mode='c')
+        self.x_test = np.load(f'data/{dataset}/X_valid.npy', mmap_mode='c')
+        self.y_test = np.load(f'data/{dataset}/y_valid.npy', mmap_mode='c')
+        with open(f'/data_index/{dataset}/{dist}_dist/nearest_{nei_number}_neighbors.json',
                   'r') as f:
             self.data_index = json.load(f)
         self.ts_encoding = ts_encoding_dict[encoding_style](channel_list)
@@ -104,7 +104,7 @@ class FM_PD(nn.Module):
                 'And you must give the label of the training dataset behind the final result ')
             output = self.llama(role='user', content=prompt)
             with open(
-                    f'/data/realwangjiahao/ts_llm/FingerMovements/{self.doc}/{self.dist}_dist/txt/FM_log_{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}.txt',
+                    f'result/FingerMovements/{self.doc}/{self.dist}_dist/txt/FM_log_{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}.txt',
                     'a') as file:
                 file.write(f'{i}')
                 file.write(output)
