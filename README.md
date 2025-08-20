@@ -44,15 +44,8 @@
 }
 ```
 
-## Further Reading
-1, [**TimeMixer++: A General Time Series Pattern Machine for Universal Predictive Analysis**](https://arxiv.org/abs/2410.16032), in *arXiv* 2024.
-[\[GitHub Repo\]](https://github.com/kwuking/TimeMixer/blob/main/README.md)
 
-**Authors**: 
 
-```bibtex
-
-```
 
 
 
