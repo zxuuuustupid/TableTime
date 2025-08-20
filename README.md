@@ -1,7 +1,7 @@
 <div align="center">
   <!-- <h1><b>  </b></h1> -->
   <!-- <h2><b>  </b></h2> -->
-  <h2><b> TableTime: Reformulating Time Series Classification as Training-Free Table Understanding with Large Language Models  </b></h2>
+  <h2><b> TableTime: Reformulating Time Series Classification as Training-Free Table Understanding with Large Language Models (CIKM'2025)</b></h2>
 </div>
 
 <div align="center">
@@ -43,5 +43,6 @@
   year={2024}
 }
 ```
+
 
 
