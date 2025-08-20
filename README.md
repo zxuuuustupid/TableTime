@@ -49,9 +49,10 @@ In today's data-driven world, multivariate time series (MTS) are widely used in 
 
 In recent years, the powerful reasoning capabilities and cross-domain generalization of large language models (LLMs) have brought new possibilities to time series data analysis. However, directly applying LLMs to time series classification tasks still faces numerous challenges, such as the mismatch between time series data and the semantic space of text, high computational costs, and the inefficient use of model reasoning capabilities. To overcome these bottlenecks, we propose **TableTime**, a novel time series classification framework based on table comprehension, which aims to fully leverage the reasoning power of LLMs, redefine multivariate time series classification as a table comprehension task, and open up a new paradigm for time series data analysis.
 
-![](pic/background.png)<center>研究背景</center>
+![](pic/background.png)<center></center>
 
 ## Method
+
 
 
 
