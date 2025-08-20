@@ -27,3 +27,19 @@
 
 </div>
 
+---
+>
+> 🙋 Please let us know if you find out a mistake or have any suggestions!
+> 
+> 🌟 If you find this resource helpful, please consider to star this repository and cite our research:
+
+```
+@article{wang2024tabletime,
+  title={Tabletime: Reformulating time series classification as zero-shot table understanding via large language models},
+  author={Wang, Jiahao and Cheng, Mingyue and Mao, Qingyang and Liu, Qi and Xu, Feiyang and Li, Xin and Chen, Enhong},
+  journal={arXiv e-prints},
+  pages={arXiv--2411},
+  year={2024}
+}
+```
+
