@@ -34,7 +34,7 @@
 > 
 > 🌟 If you find this resource helpful, please consider to star this repository and cite our research:
 
-```
+```bibtex
 @article{wang2024tabletime,
   title={Tabletime: Reformulating time series classification as zero-shot table understanding via large language models},
   author={Wang, Jiahao and Cheng, Mingyue and Mao, Qingyang and Liu, Qi and Xu, Feiyang and Li, Xin and Chen, Enhong},
@@ -44,6 +44,15 @@
 }
 ```
 
+## Further Reading
+1, [**TimeMixer++: A General Time Series Pattern Machine for Universal Predictive Analysis**](https://arxiv.org/abs/2410.16032), in *arXiv* 2024.
+[\[GitHub Repo\]](https://github.com/kwuking/TimeMixer/blob/main/README.md)
+
+**Authors**: 
+
+```bibtex
+
+```
 
 
 
