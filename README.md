@@ -28,7 +28,7 @@
 </div>
 
 ---
-> 👏 The paper is accpeted by CIKM'2025!
+> 👏 The paper is accpeted by CIKM 2025!
 >
 > 🙋 Please let us know if you find out a mistake or have any suggestions!
 > 
@@ -43,6 +43,7 @@
   year={2024}
 }
 ```
+
 
 
 
