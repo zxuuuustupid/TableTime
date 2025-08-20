@@ -58,6 +58,14 @@ In recent years, the powerful reasoning capabilities and cross-domain generaliza
 ## How to run the code
 
 ## Further Reading
+```bibtex
+@article{wang2025can,
+  title={Can slow-thinking llms reason over time? empirical studies in time series forecasting},
+  author={Wang, Jiahao and Cheng, Mingyue and Liu, Qi},
+  journal={arXiv preprint arXiv:2505.24511},
+  year={2025}
+}
+```
 
 
 
