@@ -1,0 +1,20 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+.idea/
+*.pt
+*.pth
+*.h5
+*.ckpt
+*.t7
+*.npy
+*.npz
+*.mat
+*.csv
+*.tsv
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z

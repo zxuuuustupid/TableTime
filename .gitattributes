@@ -1,0 +1,57 @@
+# =========================
+# 换行符处理（LF/CRLF）
+# =========================
+# 所有文本文件使用自动换行处理
+* text=auto
+
+# 脚本文件强制使用 LF（Unix 风格）
+*.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+*.py text eol=lf
+*.rb text eol=lf
+*.pl text eol=lf
+
+# Windows 脚本使用 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# =========================
+# 二进制文件处理
+# =========================
+*.jpg  binary
+*.jpeg binary
+*.png  binary
+*.gif  binary
+*.ico  binary
+*.bmp  binary
+*.pdf  binary
+*.zip  binary
+*.tar  binary
+*.gz   binary
+*.7z   binary
+*.exe  binary
+*.dll  binary
+*.so   binary
+*.dylib binary
+*.class binary
+
+# =========================
+# 特定文件合并策略
+# =========================
+# 不合并锁文件（yarn/npm）
+package-lock.json merge=ours
+yarn.lock merge=ours
+
+# Markdown 文件用文本合并
+*.md text
+
+# JSON 文件用文本合并
+*.json text
+
+# =========================
+# 文本编码
+# =========================
+# 所有文本文件强制 UTF-8
+* text=auto
