@@ -52,12 +52,28 @@ Large language models (LLMs) offer powerful reasoning and cross-domain generaliz
 
 ## Method
 
+### Contextual Information Modeling
+Whether using traditional classification or deep learning, it's difficult to accurately model both temporal and channel information. In LLM-based methods, aligning the numerical modality with the LLM's textual modality is a crucial consideration.
+
+To model the temporal dependencies in time series as losslessly as possible while preserving channel information and aligning the time series with the LLM's semantic space, the team used a table to model the time series, with the horizontal axis representing time information and the vertical axis representing channel information.
+
+### Reasoning Enhancement Based on Neighbor Retrieval
+To help LLM better handle unseen samples, the team proposed a **Neighbor-Assisted Contextual Reasoning** mechanism. This mechanism retrieves neighboring samples from the training data, providing important contextual guidance to the model.
+
+Retrieval methods can include DTW distance, Euclidean distance, Manhattan distance, and others. By retrieving neighbors, LLM can obtain the neighbors and labels of test samples in the training set, thereby enhancing LLM's reasoning capabilities.
+
+### Multi-Path Reasoning Mechanism
+The LLM's responses are highly random. To mitigate this, the team proposed **Multi-Path Ensemble Enhanced Reasoning**. This utilizes multiple different reasoning paths to generate diverse results, improving the model's robustness and accuracy.
+
+### Prompt Design
+To guide the LLM in performing step-by-step analysis, the team implemented a **Complex Problem Decomposition Mechanism**. This breaks down a complex problem into several smaller ones, guiding the LLM in step-by-step classification, resulting in more accurate analysis.
+
 ## Experimental Result
 
 ## How to run the code
 
 ## Further Reading
-1, [****Can Slow-thinking LLMs Reason Over Time? Empirical Studies in Time Series Forecasting**](https://arxiv.org/abs/2505.24511)
+1, [**Can Slow-thinking LLMs Reason Over Time? Empirical Studies in Time Series Forecasting**](https://arxiv.org/abs/2505.24511)
 
 **Authors**: Cheng, Mingyue and Wang, Jiahao and Wang, Daoyu and Tao, Xiaoyu and Liu, Qi
 
@@ -122,5 +138,6 @@ Large language models (LLMs) offer powerful reasoning and cross-domain generaliz
   year={2024}
 }
 ```
+
 
 
