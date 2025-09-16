@@ -22,7 +22,6 @@
 
 **[<a href="https://mp.weixin.qq.com/s/7TTO8osQED9yqQ70s9Ruxw">时序人中文解读</a>]**
 **[<a href="https://mp.weixin.qq.com/s/CnFpm-fuplmDEcKmC_pMGA">AI科研技术派中文解读</a>]**
-**[<a href="https://mp.weixin.qq.com/s/QMVzBH7I3nkuT5QN4kNQ6A">涌现聚点中文解读</a>]**
 
 
 </div>
@@ -66,6 +65,7 @@ In recent years, the powerful reasoning capabilities and cross-domain generaliza
   year={2025}
 }
 ```
+
 
 
 
