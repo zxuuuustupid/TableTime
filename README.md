@@ -58,6 +58,7 @@ In recent years, the powerful reasoning capabilities and cross-domain generaliza
 
 ## Further Reading
 1, [****Can Slow-thinking LLMs Reason Over Time? Empirical Studies in Time Series Forecasting**](https://arxiv.org/abs/2505.24511)
+
 **Authors**: Cheng, Mingyue and Wang, Jiahao and Wang, Daoyu and Tao, Xiaoyu and Liu, Qi
 
 ```bibtex
@@ -121,3 +122,4 @@ In recent years, the powerful reasoning capabilities and cross-domain generaliza
   year={2024}
 }
 ```
+
