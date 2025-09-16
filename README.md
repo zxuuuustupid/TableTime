@@ -68,10 +68,6 @@ The LLM's responses are highly random. To mitigate this, the team proposed **Mul
 ### Prompt Design
 To guide the LLM in performing step-by-step analysis, the team implemented a **Complex Problem Decomposition Mechanism**. This breaks down a complex problem into several smaller ones, guiding the LLM in step-by-step classification, resulting in more accurate analysis.
 
-## Experimental Result
-
-## How to run the code
-
 ## Further Reading
 1, [**Can Slow-thinking LLMs Reason Over Time? Empirical Studies in Time Series Forecasting**](https://arxiv.org/abs/2505.24511)
 
@@ -138,6 +134,7 @@ To guide the LLM in performing step-by-step analysis, the team implemented a **C
   year={2024}
 }
 ```
+
 
 
 
