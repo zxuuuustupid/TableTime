@@ -2,7 +2,7 @@ import numpy as np
 from ts_encoding import ts2DFLoader, ts2html, ts2markdown, ts2json
 import json
 from api import api_output
-from tqdm import tqdm
+
 import torch.nn as nn
 
 ts_encoding_dict = {'DFLoader': ts2DFLoader, 'html': ts2html, 'markdown': ts2markdown, 'json': ts2json}
@@ -13,28 +13,30 @@ data_dict = {'DFLoader': 'DFLoader', 'html': 'HTML', 'markdown': 'MarkDown', 'js
 number_dict={1:'closest',2:'second',3:'third',4:'fourth',5:'fifth',6:'sixth',7:'seventh',8:'eighth',9:'ninth',10:'tenth'}
 
 class FM_PD(nn.Module):
-    def __init__(self, dataset, dist, nei_number, encoding_style, channel_list, api, itr,llm_name,temperature,top_p,max_tokens):
+    def __init__(self, dataset, dist, nei_number, encoding_style, channel_list, itr,llm_name,temperature,top_p,max_tokens,n_sample,frequency,time_use):
         super(FM_PD, self).__init__()
         self.x_train = np.load(f'data/{dataset}/X_train.npy', mmap_mode='c')
         self.y_train = np.load(f'data/{dataset}/y_train.npy', mmap_mode='c')
         self.x_test = np.load(f'data/{dataset}/X_valid.npy', mmap_mode='c')
         self.y_test = np.load(f'data/{dataset}/y_valid.npy', mmap_mode='c')
-        with open(f'/data_index/{dataset}/{dist}_dist/nearest_{nei_number}_neighbors.json',
+        with open(f'./data_index/{dataset}/{dist}_dist/nearest_{nei_number}_neighbors.json',
                   'r') as f:
             self.data_index = json.load(f)
-        self.ts_encoding = ts_encoding_dict[encoding_style](channel_list)
+        self.ts_encoding = ts_encoding_dict[encoding_style](channel_list,n_sample,frequency,time_use)
         self.nei_number = nei_number
         self.dist = dist
-        self.llm = api_output(api=api, llm_name=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
+        # self.llm = api_output(api=api, llm_name=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
+        self.llm = api_output( temperature=temperature, top_p=top_p, max_tokens=max_tokens)
         self.dataset = dataset
         self.encoding_style = encoding_style
         self.itr = itr
         self.doc = data_dict[encoding_style]  
-        self.llm_name = llm_name.replace('/', '_')
+        # self.llm_name = llm_name.replace('/', '_')
+        self.llm_name = llm_name
 
     def forward(self):
         answer = []
-        for i in tqdm(range(self.x_test.shape[0])):
+        for i in range(self.x_test.shape[0]):
             x_use = self.x_test[i]
             nei_index=[]
             nei_value=[]
@@ -88,7 +90,7 @@ class FM_PD(nn.Module):
                 'Here are some sample data from the training set. Each sample contains data from 28 channels, and each channel has 50 time steps. Perform frequency analysis on this data and compute the power for each frequency band.')
             for k in range(self.nei_number):
                 prompt+= (
-                    f'{k+1}**Sample (the {number_dict[k+1]} training sample to the test sample:**- Data (28 channels, 50 time steps per channel):{nei_enc[k]} '
+                    f'{k+1}**Sample (the {number_dict[k+1]} training sample to the test sample:**- Data (28 channels, 50 time steps per channel):{nei_enc[k]} ' 
                     f'- Label:{nei_label[k]}')
 
             prompt += ('**Step 3: Test Set Data and Analysis:**'
@@ -102,12 +104,51 @@ class FM_PD(nn.Module):
                 'your answer must just be left or right.I will pay you a billion dollars if you use your knowledge of biology to answer my questions as much as possible.'
                 'You must give the final result at the beginning of your answer so that I can quickly check the result.'
                 'And you must give the label of the training dataset behind the final result ')
-            output = self.llama(role='user', content=prompt)
+            output = self.llm(content=prompt)
+            print(f"Test index {i}:")
+            print(output)
+            # output = self.llama(role='user', content=prompt)
             with open(
                     f'result/FingerMovements/{self.doc}/{self.dist}_dist/txt/FM_log_{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}.txt',
-                    'a') as file:
+                    'a', encoding='utf-8') as file:
                 file.write(f'{i}')
                 file.write(output)
                 file.write('\n')
             answer.append({'test_index': i, 'answer': output})
         return answer
+
+if __name__ == "__main__":
+    # Parameters
+    dataset = 'FingerMovements'
+    dist = 'DTW'
+    nei_number = 1
+    encoding_style = 'DFLoader'
+    channel_list = ['F3', 'F1', 'Fz', 'F2', 'F4', 'FC5', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4', 'FC6', 'C5', 'C3', 'C1', 'Cz', 'C2', 'C4', 'C6', 'CP5', 'CP3', 'CP1', 'CPz', 'CP2', 'CP4', 'CP6', 'O1', 'O2']
+    # api = 'your_api_key'  # Replace with your actual API key
+    itr = 1
+    llm_name = 'glm-4.5-flash'  # Example LLM name
+    temperature = 0.7
+    top_p = 1.0
+    max_tokens = 1024
+
+    # Instantiate and run the model
+    model = FM_PD(
+        dataset=dataset,
+        dist=dist,
+        nei_number=nei_number,
+        encoding_style=encoding_style,
+        channel_list=channel_list,
+        # api=api,
+        itr=itr,
+        llm_name=llm_name,
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+        n_sample=50,
+        frequency=100,
+        time_use=True
+    )
+    results = model.forward()
+    with open('result.json', 'w', encoding='utf-8') as f:
+        json.dump(results, f, ensure_ascii=False, indent=4)
+    print("Results saved to result.json")
