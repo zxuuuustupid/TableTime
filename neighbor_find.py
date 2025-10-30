@@ -46,7 +46,8 @@ def find_nearest_neighbors_MAN(train_data,test_data,num_neighbors):
         result.append({"test_index": test_index, "neighbors": nearest_indices.tolist()})
     return result
 
-dataset='RacketSports'
+# dataset='RacketSports'
+dataset = 'FingerMovements'
 train_data=np.load(f'data/{dataset}/X_train.npy', mmap_mode='c')
 test_data=np.load(f'data/{dataset}/X_valid.npy', mmap_mode='c')
 

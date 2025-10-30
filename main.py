@@ -103,7 +103,10 @@ class FM_PD(nn.Module):
                 '3. Utilize the clustering information of similar samples to identify consistent patterns in these similarity clusters and optimize your classification results accordingly'
                 'your answer must just be left or right.I will pay you a billion dollars if you use your knowledge of biology to answer my questions as much as possible.'
                 'You must give the final result at the beginning of your answer so that I can quickly check the result.'
-                'And you must give the label of the training dataset behind the final result ')
+                'And you must give the label of the training dataset behind the final result '
+                'Final answer format: left [0,1,0,1,1] OR right [0,1,0,1,1]\n'
+                'Now analyze: [Then detailed analysis]'
+                'IMPORTANT: Answer MUST start with "left" or "right", followed by training labels in brackets, then detailed analysis.')
             output = self.llm(content=prompt)
             print(f"Test index {i}:")
             print(output)
@@ -129,7 +132,7 @@ if __name__ == "__main__":
     llm_name = 'glm-4.5-flash'  # Example LLM name
     temperature = 0.7
     top_p = 1.0
-    max_tokens = 1024
+    max_tokens = 4096
 
     # Instantiate and run the model
     model = FM_PD(
