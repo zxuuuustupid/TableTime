@@ -1,0 +1,802 @@
+[
+    {
+        "test_index": 0,
+        "neighbors": [
+            45,
+            29,
+            27
+        ]
+    },
+    {
+        "test_index": 1,
+        "neighbors": [
+            72,
+            222,
+            41
+        ]
+    },
+    {
+        "test_index": 2,
+        "neighbors": [
+            293,
+            140,
+            77
+        ]
+    },
+    {
+        "test_index": 3,
+        "neighbors": [
+            102,
+            5,
+            21
+        ]
+    },
+    {
+        "test_index": 4,
+        "neighbors": [
+            93,
+            184,
+            194
+        ]
+    },
+    {
+        "test_index": 5,
+        "neighbors": [
+            291,
+            232,
+            241
+        ]
+    },
+    {
+        "test_index": 6,
+        "neighbors": [
+            120,
+            143,
+            282
+        ]
+    },
+    {
+        "test_index": 7,
+        "neighbors": [
+            192,
+            182,
+            263
+        ]
+    },
+    {
+        "test_index": 8,
+        "neighbors": [
+            60,
+            53,
+            294
+        ]
+    },
+    {
+        "test_index": 9,
+        "neighbors": [
+            21,
+            292,
+            5
+        ]
+    },
+    {
+        "test_index": 10,
+        "neighbors": [
+            147,
+            167,
+            118
+        ]
+    },
+    {
+        "test_index": 11,
+        "neighbors": [
+            193,
+            241,
+            291
+        ]
+    },
+    {
+        "test_index": 12,
+        "neighbors": [
+            172,
+            301,
+            82
+        ]
+    },
+    {
+        "test_index": 13,
+        "neighbors": [
+            22,
+            83,
+            251
+        ]
+    },
+    {
+        "test_index": 14,
+        "neighbors": [
+            284,
+            77,
+            247
+        ]
+    },
+    {
+        "test_index": 15,
+        "neighbors": [
+            157,
+            66,
+            189
+        ]
+    },
+    {
+        "test_index": 16,
+        "neighbors": [
+            240,
+            222,
+            72
+        ]
+    },
+    {
+        "test_index": 17,
+        "neighbors": [
+            155,
+            40,
+            197
+        ]
+    },
+    {
+        "test_index": 18,
+        "neighbors": [
+            250,
+            263,
+            73
+        ]
+    },
+    {
+        "test_index": 19,
+        "neighbors": [
+            66,
+            263,
+            243
+        ]
+    },
+    {
+        "test_index": 20,
+        "neighbors": [
+            284,
+            280,
+            212
+        ]
+    },
+    {
+        "test_index": 21,
+        "neighbors": [
+            25,
+            169,
+            134
+        ]
+    },
+    {
+        "test_index": 22,
+        "neighbors": [
+            302,
+            115,
+            243
+        ]
+    },
+    {
+        "test_index": 23,
+        "neighbors": [
+            266,
+            278,
+            154
+        ]
+    },
+    {
+        "test_index": 24,
+        "neighbors": [
+            45,
+            27,
+            18
+        ]
+    },
+    {
+        "test_index": 25,
+        "neighbors": [
+            299,
+            8,
+            145
+        ]
+    },
+    {
+        "test_index": 26,
+        "neighbors": [
+            175,
+            271,
+            75
+        ]
+    },
+    {
+        "test_index": 27,
+        "neighbors": [
+            293,
+            284,
+            134
+        ]
+    },
+    {
+        "test_index": 28,
+        "neighbors": [
+            199,
+            149,
+            151
+        ]
+    },
+    {
+        "test_index": 29,
+        "neighbors": [
+            197,
+            130,
+            83
+        ]
+    },
+    {
+        "test_index": 30,
+        "neighbors": [
+            27,
+            209,
+            45
+        ]
+    },
+    {
+        "test_index": 31,
+        "neighbors": [
+            60,
+            294,
+            237
+        ]
+    },
+    {
+        "test_index": 32,
+        "neighbors": [
+            60,
+            139,
+            237
+        ]
+    },
+    {
+        "test_index": 33,
+        "neighbors": [
+            304,
+            109,
+            182
+        ]
+    },
+    {
+        "test_index": 34,
+        "neighbors": [
+            205,
+            118,
+            8
+        ]
+    },
+    {
+        "test_index": 35,
+        "neighbors": [
+            302,
+            3,
+            259
+        ]
+    },
+    {
+        "test_index": 36,
+        "neighbors": [
+            280,
+            212,
+            296
+        ]
+    },
+    {
+        "test_index": 37,
+        "neighbors": [
+            53,
+            15,
+            286
+        ]
+    },
+    {
+        "test_index": 38,
+        "neighbors": [
+            241,
+            289,
+            104
+        ]
+    },
+    {
+        "test_index": 39,
+        "neighbors": [
+            276,
+            1,
+            147
+        ]
+    },
+    {
+        "test_index": 40,
+        "neighbors": [
+            126,
+            64,
+            179
+        ]
+    },
+    {
+        "test_index": 41,
+        "neighbors": [
+            78,
+            8,
+            64
+        ]
+    },
+    {
+        "test_index": 42,
+        "neighbors": [
+            169,
+            166,
+            134
+        ]
+    },
+    {
+        "test_index": 43,
+        "neighbors": [
+            64,
+            126,
+            78
+        ]
+    },
+    {
+        "test_index": 44,
+        "neighbors": [
+            276,
+            136,
+            147
+        ]
+    },
+    {
+        "test_index": 45,
+        "neighbors": [
+            38,
+            120,
+            282
+        ]
+    },
+    {
+        "test_index": 46,
+        "neighbors": [
+            106,
+            240,
+            38
+        ]
+    },
+    {
+        "test_index": 47,
+        "neighbors": [
+            76,
+            53,
+            50
+        ]
+    },
+    {
+        "test_index": 48,
+        "neighbors": [
+            260,
+            163,
+            31
+        ]
+    },
+    {
+        "test_index": 49,
+        "neighbors": [
+            31,
+            226,
+            297
+        ]
+    },
+    {
+        "test_index": 50,
+        "neighbors": [
+            154,
+            315,
+            176
+        ]
+    },
+    {
+        "test_index": 51,
+        "neighbors": [
+            263,
+            64,
+            258
+        ]
+    },
+    {
+        "test_index": 52,
+        "neighbors": [
+            186,
+            256,
+            247
+        ]
+    },
+    {
+        "test_index": 53,
+        "neighbors": [
+            307,
+            247,
+            128
+        ]
+    },
+    {
+        "test_index": 54,
+        "neighbors": [
+            34,
+            173,
+            289
+        ]
+    },
+    {
+        "test_index": 55,
+        "neighbors": [
+            10,
+            21,
+            5
+        ]
+    },
+    {
+        "test_index": 56,
+        "neighbors": [
+            209,
+            95,
+            155
+        ]
+    },
+    {
+        "test_index": 57,
+        "neighbors": [
+            1,
+            260,
+            100
+        ]
+    },
+    {
+        "test_index": 58,
+        "neighbors": [
+            105,
+            289,
+            241
+        ]
+    },
+    {
+        "test_index": 59,
+        "neighbors": [
+            118,
+            193,
+            8
+        ]
+    },
+    {
+        "test_index": 60,
+        "neighbors": [
+            141,
+            40,
+            130
+        ]
+    },
+    {
+        "test_index": 61,
+        "neighbors": [
+            271,
+            272,
+            149
+        ]
+    },
+    {
+        "test_index": 62,
+        "neighbors": [
+            166,
+            227,
+            275
+        ]
+    },
+    {
+        "test_index": 63,
+        "neighbors": [
+            55,
+            118,
+            100
+        ]
+    },
+    {
+        "test_index": 64,
+        "neighbors": [
+            5,
+            41,
+            21
+        ]
+    },
+    {
+        "test_index": 65,
+        "neighbors": [
+            73,
+            157,
+            44
+        ]
+    },
+    {
+        "test_index": 66,
+        "neighbors": [
+            216,
+            236,
+            230
+        ]
+    },
+    {
+        "test_index": 67,
+        "neighbors": [
+            152,
+            283,
+            272
+        ]
+    },
+    {
+        "test_index": 68,
+        "neighbors": [
+            38,
+            240,
+            143
+        ]
+    },
+    {
+        "test_index": 69,
+        "neighbors": [
+            13,
+            277,
+            36
+        ]
+    },
+    {
+        "test_index": 70,
+        "neighbors": [
+            276,
+            267,
+            100
+        ]
+    },
+    {
+        "test_index": 71,
+        "neighbors": [
+            241,
+            51,
+            221
+        ]
+    },
+    {
+        "test_index": 72,
+        "neighbors": [
+            289,
+            51,
+            44
+        ]
+    },
+    {
+        "test_index": 73,
+        "neighbors": [
+            118,
+            51,
+            241
+        ]
+    },
+    {
+        "test_index": 74,
+        "neighbors": [
+            302,
+            259,
+            66
+        ]
+    },
+    {
+        "test_index": 75,
+        "neighbors": [
+            68,
+            175,
+            271
+        ]
+    },
+    {
+        "test_index": 76,
+        "neighbors": [
+            154,
+            127,
+            59
+        ]
+    },
+    {
+        "test_index": 77,
+        "neighbors": [
+            166,
+            78,
+            207
+        ]
+    },
+    {
+        "test_index": 78,
+        "neighbors": [
+            100,
+            55,
+            193
+        ]
+    },
+    {
+        "test_index": 79,
+        "neighbors": [
+            73,
+            204,
+            250
+        ]
+    },
+    {
+        "test_index": 80,
+        "neighbors": [
+            8,
+            55,
+            136
+        ]
+    },
+    {
+        "test_index": 81,
+        "neighbors": [
+            234,
+            42,
+            2
+        ]
+    },
+    {
+        "test_index": 82,
+        "neighbors": [
+            51,
+            304,
+            289
+        ]
+    },
+    {
+        "test_index": 83,
+        "neighbors": [
+            265,
+            160,
+            209
+        ]
+    },
+    {
+        "test_index": 84,
+        "neighbors": [
+            5,
+            41,
+            21
+        ]
+    },
+    {
+        "test_index": 85,
+        "neighbors": [
+            83,
+            50,
+            74
+        ]
+    },
+    {
+        "test_index": 86,
+        "neighbors": [
+            42,
+            182,
+            189
+        ]
+    },
+    {
+        "test_index": 87,
+        "neighbors": [
+            170,
+            31,
+            162
+        ]
+    },
+    {
+        "test_index": 88,
+        "neighbors": [
+            86,
+            21,
+            264
+        ]
+    },
+    {
+        "test_index": 89,
+        "neighbors": [
+            77,
+            293,
+            284
+        ]
+    },
+    {
+        "test_index": 90,
+        "neighbors": [
+            72,
+            81,
+            222
+        ]
+    },
+    {
+        "test_index": 91,
+        "neighbors": [
+            60,
+            237,
+            130
+        ]
+    },
+    {
+        "test_index": 92,
+        "neighbors": [
+            258,
+            243,
+            263
+        ]
+    },
+    {
+        "test_index": 93,
+        "neighbors": [
+            225,
+            219,
+            212
+        ]
+    },
+    {
+        "test_index": 94,
+        "neighbors": [
+            102,
+            5,
+            75
+        ]
+    },
+    {
+        "test_index": 95,
+        "neighbors": [
+            217,
+            191,
+            122
+        ]
+    },
+    {
+        "test_index": 96,
+        "neighbors": [
+            269,
+            263,
+            243
+        ]
+    },
+    {
+        "test_index": 97,
+        "neighbors": [
+            174,
+            123,
+            267
+        ]
+    },
+    {
+        "test_index": 98,
+        "neighbors": [
+            294,
+            189,
+            202
+        ]
+    },
+    {
+        "test_index": 99,
+        "neighbors": [
+            183,
+            168,
+            202
+        ]
+    }
+]

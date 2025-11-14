@@ -43,11 +43,15 @@ class FM_PD(nn.Module):
             nei_label=[]
             nei_enc=[]
             for j in range(self.nei_number):
-                nei_index.append(self.data_index[i]['nearest_neighbors'][j])
+                # nei_index.append(self.data_index[i]['nearest_neighbors'][j])
+                nei_index.append(self.data_index[i]['neighbors'][j])
                 nei_value.append(self.x_train[nei_index[j]])
                 nei_label.append(self.y_train[nei_index[j]])
                 nei_enc.append(self.ts_encoding(nei_value[j]))
             test = self.ts_encoding(x_use)  # 测试集编码
+
+            print(test)
+
             prompt = (
                 'You are an expert in electroencephalogram (EEG) signal analysis, neuroscience, and clustering analysis. '
                 'You will classify samples based on provided EEG time-series data by extracting frequency features (such as alpha waves, beta waves, etc.) and using these features. '
