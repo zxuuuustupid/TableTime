@@ -48,10 +48,15 @@ class FM_PD(nn.Module):
                 nei_value.append(self.x_train[nei_index[j]])
                 nei_label.append(self.y_train[nei_index[j]])
                 nei_enc.append(self.ts_encoding(nei_value[j]))
+                
+                # print("\033[34m" + str(self.data_index[i]['neighbors'][j]) + "\033[0m")
+                # print("\033[34m" + str(self.x_train[nei_index[j]]) + "\033[0m")
+                # print("\033[34m" + str(self.y_train[nei_index[j]]) + "\033[0m")
+                # print("\033[34m" + str(self.ts_encoding(nei_value[j])) + "\033[0m")
             test = self.ts_encoding(x_use)  # 测试集编码
 
-            print(test)
-
+            # print(test)
+            # print("\033[34m" + str(test) + "\033[0m")
             prompt = (
                 'You are an expert in electroencephalogram (EEG) signal analysis, neuroscience, and clustering analysis. '
                 'You will classify samples based on provided EEG time-series data by extracting frequency features (such as alpha waves, beta waves, etc.) and using these features. '
@@ -110,8 +115,10 @@ class FM_PD(nn.Module):
                 'And you must give the label of the training dataset behind the final result '
                 'Final answer format: left [0,1,0,1,1] OR right [0,1,0,1,1]\n'
                 'Now analyze: [Then detailed analysis]'
-                'IMPORTANT: Answer MUST start with "left" or "right", followed by training labels in brackets, then detailed analysis.')
+                '**IMPORTANT: Answer MUST start with "left" or "right", followed by training labels in brackets, then detailed analysis.**')
+            # print("\033[34m" + str(prompt) + "\033[0m")
             output = self.llm(content=prompt)
+            
             print(f"Test index {i}:")
             print(output)
             # output = self.llama(role='user', content=prompt)
@@ -128,7 +135,7 @@ if __name__ == "__main__":
     # Parameters
     dataset = 'FingerMovements'
     dist = 'DTW'
-    nei_number = 1
+    nei_number = 5
     encoding_style = 'DFLoader'
     channel_list = ['F3', 'F1', 'Fz', 'F2', 'F4', 'FC5', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4', 'FC6', 'C5', 'C3', 'C1', 'Cz', 'C2', 'C4', 'C6', 'CP5', 'CP3', 'CP1', 'CPz', 'CP2', 'CP4', 'CP6', 'O1', 'O2']
     # api = 'your_api_key'  # Replace with your actual API key

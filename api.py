@@ -21,7 +21,7 @@ class api_output(nn.Module):
 
         while True:
             try:
-                print(f"[DEBUG] Sending request with content: {repr(content)}")
+                # print(f"[DEBUG] Sending request with content: {repr(content)}")
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[{"role": "user", "content": content}],
@@ -31,7 +31,7 @@ class api_output(nn.Module):
                     stream=False,
                 )
 
-                print(f"[DEBUG] Raw response: {json.dumps(response.to_dict(), indent=2, ensure_ascii=False)}")
+                # print(f"[DEBUG] Raw response: {json.dumps(response.to_dict(), indent=2, ensure_ascii=False)}")
                 message = response.choices[0].message
 
                 # 兼容所有情况
@@ -45,13 +45,13 @@ class api_output(nn.Module):
                         message_dict.get("reasoning_content", "")
                 ).strip()
 
-                print(f"[DEBUG] Extracted result length: {len(result)}")
+                # print(f"[DEBUG] Extracted result length: {len(result)}")
 
                 if result:
-                    print("[DEBUG] Received non-empty result.")
+                    # print("[DEBUG] Received non-empty result.")
                     return result
                 else:
-                    print("⚠️ API returned an empty response. Retrying...")
+                    # print("⚠️ API returned an empty response. Retrying...")
                     time.sleep(1)
 
             except Exception as e:
