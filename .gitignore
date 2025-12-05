@@ -18,3 +18,4 @@ __pycache__/
 *.gz
 *.rar
 *.7z
+.vscode/
