@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import json
 from dtaidistance import dtw_ndim
@@ -47,15 +48,32 @@ def find_nearest_neighbors_MAN(train_data,test_data,num_neighbors):
     return result
 
 # dataset='RacketSports'
-dataset = 'FingerMovements'
-train_data=np.load(f'data/{dataset}/X_train.npy', mmap_mode='c')
-test_data=np.load(f'data/{dataset}/X_valid.npy', mmap_mode='c')
+# dataset = 'FingerMovements'
+# train_data=np.load(f'data/{dataset}/X_train.npy', mmap_mode='c')
+# test_data=np.load(f'data/{dataset}/X_valid.npy', mmap_mode='c')
 
-dist={'DTW':find_nearest_neighbors_DTW,'ED':find_nearest_neighbors_ED,
-      'SED':find_nearest_neighbors_standard_ED,'MAN':find_nearest_neighbors_MAN}
+# dist={'DTW':find_nearest_neighbors_DTW,'ED':find_nearest_neighbors_ED,
+#       'SED':find_nearest_neighbors_standard_ED,'MAN':find_nearest_neighbors_MAN}
 
-for i in ['DTW','ED','SED','MAN']:
-    for j in [1,2,3,4,5,6,7,8,9,10]:
-        result=dist[i](train_data,test_data,num_neighbors=j)
-        with open(f'data_index/{dataset}/{i}_dist/nearest_{j}_neighbors.json', 'w') as f:
-            json.dump(result,f,indent=4)
+# for i in ['DTW','ED','SED','MAN']:
+#     for j in [1,2,3,4,5,6,7,8,9,10]:
+#         result=dist[i](train_data,test_data,num_neighbors=j)
+#         with open(f'data_index/{dataset}/{i}_dist/nearest_{j}_neighbors.json', 'w') as f:
+#             json.dump(result,f,indent=4)
+
+def neighbor_find(dataset,
+                  dist_map = {'DTW': find_nearest_neighbors_DTW, 'ED': find_nearest_neighbors_ED,
+                              'SED': find_nearest_neighbors_standard_ED, 'MAN': find_nearest_neighbors_MAN},
+                  neighbor_num = 10):
+    train_data = np.load(f'data/{dataset}/X_train.npy', mmap_mode='c')
+    test_data = np.load(f'data/{dataset}/X_valid.npy', mmap_mode='c')
+    
+    # dist_map = {'DTW': find_nearest_neighbors_DTW, 'ED': find_nearest_neighbors_ED,
+    #             'SED': find_nearest_neighbors_standard_ED, 'MAN': find_nearest_neighbors_MAN}
+
+    for name, func in dist_map.items():
+        os.makedirs(f'data_index/{dataset}/{name}_dist', exist_ok=True)
+        for j in range(1, neighbor_num + 1):
+            result = func(train_data, test_data, num_neighbors=j)
+            with open(f'data_index/{dataset}/{name}_dist/nearest_{j}_neighbors.json', 'w') as f:
+                json.dump(result, f, indent=4)

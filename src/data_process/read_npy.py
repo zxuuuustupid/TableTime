@@ -1,8 +1,8 @@
 import numpy as np
 import pprint
 
-# path = "data/FingerMovements/X_train.npy"
-path = "data/FingerMovements/X_valid.npy"
+path = "data/BJTU-gearbox/y_train.npy"
+# path = "data/FingerMovements/X_valid.npy"
 data = np.load(path, allow_pickle=True)
 
 print("📁 文件路径:", path)

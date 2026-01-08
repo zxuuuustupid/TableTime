@@ -1,7 +1,7 @@
 import numpy as np
-from ts_encoding import ts2DFLoader, ts2html, ts2markdown, ts2json
+from src.ts_encoding import ts2DFLoader, ts2html, ts2markdown, ts2json
 import json
-from api import api_output
+from src.api import api_output
 
 import torch.nn as nn
 
@@ -26,7 +26,7 @@ class FM_PD(nn.Module):
         self.nei_number = nei_number
         self.dist = dist
         # self.llm = api_output(api=api, llm_name=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
-        self.llm = api_output( temperature=temperature, top_p=top_p, max_tokens=max_tokens)
+        self.llm = api_output(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
         self.dataset = dataset
         self.encoding_style = encoding_style
         self.itr = itr

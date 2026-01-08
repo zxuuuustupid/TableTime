@@ -1,19 +1,21 @@
 from openai import OpenAI
 import torch.nn as nn
 import time
+from dotenv import load_dotenv
+import os
 from zai import ZhipuAiClient
 from openai.types.chat import ChatCompletionUserMessageParam
 
-
 class api_output(nn.Module):
-    def __init__(self,temperature,top_p,max_tokens):
+    def __init__(self, model, temperature, top_p, max_tokens):
         super(api_output, self).__init__()
-        # self.client = OpenAI(api_key='6b52211da3c14839b1ba5927cdbaa1c0.VECICqzbMo7aQwJH',base_url='https://api.deepseek.com/v1',)  #use your api-key and base-url here
-        self.client = ZhipuAiClient(api_key="6b52211da3c14839b1ba5927cdbaa1c0.VECICqzbMo7aQwJH")
-        self.model = "glm-4.5-flash"
-        self.temperature=temperature
-        self.top_p=top_p
-        self.max_tokens=max_tokens
+        load_dotenv()
+        api_key = os.getenv("ZHIPU_API_KEY")
+        self.client = ZhipuAiClient(api_key=api_key)
+        self.model = model
+        self.temperature = temperature
+        self.top_p = top_p
+        self.max_tokens = max_tokens
 
     def forward(self, content):
         import time
