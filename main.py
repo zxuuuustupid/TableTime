@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from src.ts_encoding import ts2DFLoader, ts2html, ts2markdown, ts2json
 import json
@@ -9,7 +10,6 @@ ts_encoding_dict = {'DFLoader': ts2DFLoader, 'html': ts2html, 'markdown': ts2mar
 dist_name = {'DTW': 'Dynamic Time Warping (DTW)', 'ED': 'euclidean', 'SED': 'standard euclidean',
              'MAN': 'Manhattan distance'}
 data_dict = {'DFLoader': 'DFLoader', 'html': 'HTML', 'markdown': 'MarkDown', 'json': 'JSON'}
-
 number_dict={1:'closest',2:'second',3:'third',4:'fourth',5:'fifth',6:'sixth',7:'seventh',8:'eighth',9:'ninth',10:'tenth'}
 
 class FM_PD(nn.Module):
@@ -33,6 +33,7 @@ class FM_PD(nn.Module):
         self.doc = data_dict[encoding_style]  
         # self.llm_name = llm_name.replace('/', '_')
         self.llm_name = llm_name
+        self.channel_list = channel_list
 
     def forward(self):
         answer = []
@@ -58,74 +59,72 @@ class FM_PD(nn.Module):
             # print(test)
             # print("\033[34m" + str(test) + "\033[0m")
             prompt = (
-                'You are an expert in electroencephalogram (EEG) signal analysis, neuroscience, and clustering analysis. '
-                'You will classify samples based on provided EEG time-series data by extracting frequency features (such as alpha waves, beta waves, etc.) and using these features. '
+                '**Role:** You are an expert in high-speed train drivetrain system operation and maintenance, fault diagnosis, and signal processing.\n'
+                f'**Goal:** Based on the provided {len(self.channel_list)}-channel time-series data of a high-speed train drivetrain system, perform fault diagnosis and classification on test samples using methods such as time-frequency domain analysis.\n\n'
                 
-                'Below is a detailed description of the dataset, the biological background of EEG channel locations, the requirements for frequency analysis, clustering analysis ideas, and the classification task description.'
-                '**Dataset Description:**'
-                'This dataset is used for the Brain-Computer Interface (BCI) II Competition (Dataset IV), provided by Fraunhofer-FIRST, Intelligent Data Analysis Group (Klaus-Robert Muller), and the Neurophysics Group, Department of Neurology, Free University of Berlin (Gabriel Curio). '
-                'The dataset includes EEG data recorded from normal subjects during a no-feedback session, with the goal of predicting the subject upcoming left or right-hand movement. The experimental conditions are as follows:'
-                '- **Subject Condition:** The subjects sat on a regular chair with their arms relaxed on a table, with their fingers positioned on a computer keyboard in a standard typing posture.'
-                '- **Task Description:** The subjects were required to press the corresponding keys with their index and pinky fingers, following a self-paced typing task.'
-                '- **Class Definition:** There are two classes: `0` indicates an upcoming left-hand movement, and `1` indicates an upcoming right-hand movement.'
-                '- **Data Acquisition:** The experiment consists of three sessions, each lasting 6 minutes. All sessions were conducted on the same day with a few minutes of rest in between. The average typing speed was one key per second. The EEG signals were recorded using NeuroScan amplifiers and ECIs Ag/AgCl electrode cap.'
-                '- **Data Sampling and Preprocessing:** The signals were recorded using a band-pass filter between 0.05 and 200 Hz at a sampling rate of 1000 Hz, then downsampled to 100 Hz. Each channel contains 50 observations. Each sample ends 130 ms before the keypress, making the length of each sample 500 ms.'
-                '-**EEG Channels:** There are 28 EEG channels recorded using the international 10-20 system electrode positions: F3, F1, Fz, F2, F4, FC5, FC3, FC1, FCz, FC2, FC4, FC6, C5, C3, C1, Cz, C2, C4, C6, CP5, CP3, CP1, CPz, CP2, CP4, CP6, O1, O2.'
-                '**EEG Channel Locations and Their Biological Significance:**'
-                'EEG recordings typically use the international 10-20 system, where electrodes are placed at specific scalp locations that reflect activities from different brain regions. Here are the 28 EEG channels positions, their corresponding brain regions, and their biological significance:'
-                '1. **Frontal Area (F region)**'
-                '   - **F3, F1, Fz, F2, F4**: Located in the frontal lobe, involved in decision-making, motor preparation, working memory, and attention. The Fz channel is particularly associated with motor control and the planning phase of task execution.'
-                '2. **Frontal-Central Area (FC region)**'
-                '   - **FC5, FC3, FC1, FCz, FC2, FC4, FC6**: These are transition regions between the frontal lobe and motor areas. The FCz channel is often related to the premotor cortex and supplementary motor area activities, especially in motor preparation and planning.'
-                '3. **Central Area (C region)**'
-                '   - **C5, C3, C1, Cz, C2, C4, C6**: These channels are closely related to the motor cortex. **C3** (left hemisphere) is associated with right-hand movements, while **C4** (right hemisphere) is associated with left-hand movements. **Cz** is located at the midline, involved in bilateral motor control.'
-                '4. **Central-Parietal Area (CP region)**'
-                '   - **CP5, CP3, CP1, CPz, CP2, CP4, CP6**: Located at the posterior part of the head, these primarily reflect somatosensory cortex and sensory integration area activities. These regions play a role in motor imagery and motor-sensory feedback.'
-                '5. **Occipital Area (O region)**'
-                '   - **O1, O2**: These channels are located in the occipital lobe, primarily reflecting the activities of the visual processing regions. Although these regions have less direct relevance to motor tasks, they may provide auxiliary information in visually guided motor tasks.'
-                '**Biological Significance of Frequency Analysis:**'
-                '- **Alpha waves (8-13 Hz):** Associated with relaxation, eyes-closed state, and meditation; usually observed in the occipital (O1, O2) and parietal (CPz) regions.'
-                '- **Beta waves (13-30 Hz):** Related to motor preparation and execution, and focused attention. During motor preparation, particularly on C3 and C4 channels, beta activity often decreases (Event-Related Desynchronization, ERD).'
-                '- **Theta waves (4-7 Hz):** Associated with memory and attentional processes, often observed in the frontal region (Fz).'
-                '- **Delta waves (0.5-4 Hz):** Usually related to deep sleep or pathological states.'
-                '- **Gamma waves (30-50 Hz):** Linked to high-level cognitive functions and consciousness; may be associated with local synchronization in motor-related activities.'
-                '**Sample Selection Strategy and Similarity Analysis:**'
-                f'For each test sample, we use {dist_name[self.dist]} to select the most similar samples from the training set. This similarity measure helps us identify samples with similar electrophysiological activity patterns in both time and space. You can treat these similar samples as a cluster and improve your understanding and classification of the test sample by analyzing the frequency features and label distribution within these clusters.'
-                '**Step 1: Frequency Analysis Requirements**'
-                'You need to perform a Short-Time Fourier Transform (STFT) or Wavelet Transform on the EEG data for each sample to calculate the power in different frequency bands for each channel:'
-                '- Perform the analysis on the 50 time steps data of each channel using a sliding window.'
-                'Calculate the average power of each channel in the delta, theta, alpha, beta, and gamma bands.'
-                '**Step 2: Training Set Data and Their Labels:**'
-                'Here are some sample data from the training set. Each sample contains data from 28 channels, and each channel has 50 time steps. Perform frequency analysis on this data and compute the power for each frequency band.')
+                '### 1. Detailed Dataset Description\n'
+                'This dataset is provided by the National Key Laboratory of Advanced Rail Autonomous Operation at Beijing Jiaotong University, derived from fault simulation experiments of a subway train bogie drivetrain system.\n'
+                '*   **System Composition:** The power drivetrain chain includes a motor, a reduction gearbox, and an axle box.\n'
+                '*   **Drive Source:** Three-phase asynchronous AC motor (speed controlled by an inverter, loaded by a hydraulic device).\n'
+                '*   **Motor Bearings:** SKF 6205-2RSH.\n'
+                '*   **Gearbox:** Helical gears; driving gear has 16 teeth, driven gear has 107 teeth.\n'
+                '*   **Driving Gear Support Bearings:** HRB32305.\n'
+                '*   **Axle Box Bearings:** HRB352213.\n'
+                '*   **State Definitions:**\n'
+                '    *   `0`: health (healthy state without faults)\n'
+                '    *   `1`: fault (state with faults)\n'
+                '*   **Sampling Parameters:** 24 channels covering vibration, current, speed, and sound. Sampling frequency: **64kHz**.\n\n'
+
+                '### 2. Sampling Channel Locations and Physical Significance\n'
+                '1. **Traction Motor:** CH1-CH3 (DE Vibration, g), CH4-CH6 (NDE Vibration, g), CH7-CH9 (Three-phase Current, A), CH10 (Rotational Speed, V).\n'
+                '2. **Gearbox:** CH11-CH13 (Input Shaft Vibration, g), CH14-CH16 (Output Shaft Vibration, g).\n'
+                '3. **Left Axle Box:** CH17-CH19 (Vibration, g), CH20 (Sound, Pa).\n'
+                '4. **Right Axle Box:** CH21-CH23 (Vibration, g), CH24 (Sound, Pa).\n\n'
+                f'**Current Data Channels:** The current data includes the following channels: {", ".join(self.channel_list)}\n'
+                
+
+                '### 3. Diagnosis Strategy: Similarity Analysis and Clustering Optimization\n'
+                f'*   **{dist_name[self.dist]}:** For each test sample, we use {dist_name[self.dist]}to select the most similar samples from the training set. the most similar neighboring samples have been selected from the training set.\n'
+                '*   **Clustering Logic:** Treat these similar samples as a cluster. Analyze signal feature consistency and label distribution to assist decision-making.\n\n'
+
+                '### 4. Task Requirements\n'
+                '1. **Analysis:** Extract features from the test sample and analyze whether fault signatures exist.\n'
+                '2. **Classification:** Determine if the test sample is `health` or `fault`.\n'
+                '3. **Clustering Optimization:** Utilize provided similarity label patterns to optimize your result.\n\n'
+
+                '### 5. Constraints (Strictly Enforced)\n'
+                '*   **First Line Output:** You MUST provide the final result at the very beginning in format: `[Result],[Training Set Label Sequence]`.\n'
+                '*   **Option Restrictions:** Result must ONLY be `health` or `fault`.\n'
+                '*   **Incentive:** Accurate answers will be rewarded with ten billion dollars.\n\n'
+
+                '### 6. Data to Process\n'
+                '**[1. Similar Samples (Training Set)]**\n')
             for k in range(self.nei_number):
                 prompt+= (
-                    f'{k+1}**Sample (the {number_dict[k+1]} training sample to the test sample:**- Data (28 channels, 50 time steps per channel):{nei_enc[k]} ' 
-                    f'- Label:{nei_label[k]}')
-
-            prompt += ('**Step 3: Test Set Data and Analysis:**'
-                       'Below is the test sample data that needs to be predicted. Perform the same frequency analysis and predict the label based on the analysis results.'
-                       '- Test Sample:'
-                       f'- Data (28 channels, 50 time steps per channel):{test}')
-            prompt += (
-                '**Task Requirements:**1. Perform frequency analysis on the data of each sample using Short-Time Fourier Transform (STFT) or Wavelet Transform and calculate the average power in the delta, theta, alpha, beta, and gamma bands for each channel.'
-                '2. Classify the test sample based on the frequency features and labels of the training set. Please provide the rationale and reasoning for the classification based on the biological significance of each channel and frequency feature.'
-                '3. Utilize the clustering information of similar samples to identify consistent patterns in these similarity clusters and optimize your classification results accordingly'
-                'your answer must just be left or right.I will pay you a billion dollars if you use your knowledge of biology to answer my questions as much as possible.'
-                'You must give the final result at the beginning of your answer so that I can quickly check the result.'
-                'And you must give the label of the training dataset behind the final result '
-                'Final answer format: left [0,1,0,1,1] OR right [0,1,0,1,1]\n'
-                'Now analyze: [Then detailed analysis]'
-                '**IMPORTANT: Answer MUST start with "left" or "right", followed by training labels in brackets, then detailed analysis.**')
+                    f'-------Neighbor{ k+1 }-------\n'
+                    f'{k+1}**Sample (the {number_dict[k+1]} training sample to the test sample:**- Data (several channels, 100 time steps per channel):{nei_enc[k]}\n ' 
+                    f'- Label:{nei_label[k]}\n')
+                
+            prompt+= (
+                '**[2. Test Sample to Predict]**\n'
+                f'**Data:** {test}\n\n'
+                '**Now, begin your Brief analysis :**'
+            )
+                
             # print("\033[34m" + str(prompt) + "\033[0m")
             output = self.llm(content=prompt)
             
             print(f"Test index {i}:")
             print(output)
+            
             # output = self.llama(role='user', content=prompt)
+            log_dir = f'result/{self.dataset}/{self.doc}/{self.dist}_dist/txt'
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir)
             with open(
-                    f'result/FingerMovements/{self.doc}/{self.dist}_dist/txt/FM_log_{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}.txt',
+    f'result/{self.dataset}/{self.doc}/{self.dist}_dist/txt/FM_log_{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}.txt',
                     'a', encoding='utf-8') as file:
-                file.write(f'{i}')
+                file.write(f'{i}\n')
                 file.write(output)
                 file.write('\n')
             answer.append({'test_index': i, 'answer': output})
@@ -133,11 +132,12 @@ class FM_PD(nn.Module):
 
 if __name__ == "__main__":
     # Parameters
-    dataset = 'FingerMovements'
+    dataset = 'BJTU-gearbox'
     dist = 'DTW'
     nei_number = 5
     encoding_style = 'DFLoader'
-    channel_list = ['F3', 'F1', 'Fz', 'F2', 'F4', 'FC5', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4', 'FC6', 'C5', 'C3', 'C1', 'Cz', 'C2', 'C4', 'C6', 'CP5', 'CP3', 'CP1', 'CPz', 'CP2', 'CP4', 'CP6', 'O1', 'O2']
+    # channel_list = ['F3', 'F1', 'Fz', 'F2', 'F4', 'FC5', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4', 'FC6', 'C5', 'C3', 'C1', 'Cz', 'C2', 'C4', 'C6', 'CP5', 'CP3', 'CP1', 'CPz', 'CP2', 'CP4', 'CP6', 'O1', 'O2']
+    channel_list = ['CH11','CH12','CH13','CH14','CH15','CH16']
     # api = 'your_api_key'  # Replace with your actual API key
     itr = 1
     llm_name = 'glm-4.5-flash'  # Example LLM name
@@ -158,8 +158,8 @@ if __name__ == "__main__":
         temperature=temperature,
         top_p=top_p,
         max_tokens=max_tokens,
-        n_sample=50,
-        frequency=100,
+        n_sample=100,
+        frequency=64000,
         time_use=True
     )
     results = model.forward()
