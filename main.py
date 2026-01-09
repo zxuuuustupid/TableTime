@@ -41,7 +41,21 @@ def load_config(config_path):
     return config
 
 class FM_PD(nn.Module):
-    def __init__(self, dataset, dist, nei_number, encoding_style, channel_list, itr,llm_name,temperature,top_p,max_tokens,n_sample,frequency,time_use):
+    def __init__(self, 
+                 dataset, 
+                 dist, 
+                 nei_number, 
+                 encoding_style, 
+                 channel_list, 
+                 itr,
+                 llm_name,
+                 temperature,
+                 top_p,
+                 max_tokens,
+                #  n_sample,
+                #  frequency,
+                #  time_use
+                 ):
         super(FM_PD, self).__init__()
         self.x_train = np.load(f'data/{dataset}/X_train.npy', mmap_mode='c')
         self.y_train = np.load(f'data/{dataset}/y_train.npy', mmap_mode='c')
@@ -50,7 +64,7 @@ class FM_PD(nn.Module):
         with open(f'./data_index/{dataset}/{dist}_dist/nearest_{nei_number}_neighbors.json',
                   'r') as f:
             self.data_index = json.load(f)
-        self.ts_encoding = ts_encoding_dict[encoding_style](channel_list,n_sample,frequency,time_use)
+        # self.ts_encoding = ts_encoding_dict[encoding_style](channel_list,n_sample,frequency,time_use)
         self.nei_number = nei_number
         self.dist = dist
         if llm_name == 'glm-4.5-flash':
@@ -371,7 +385,7 @@ if __name__ == "__main__":
         channel_list=cfg['data']['selected_channels'],
         dist=cfg['strategy']['distance_metric'],
         nei_number=cfg['strategy']['neighbor_count'],
-        # encoding_style=cfg['strategy']['encoding_style'],
+        encoding_style=cfg['strategy']['encoding_style'],
         llm_name=cfg['llm']['model_name'],
         temperature=cfg['llm']['temperature'],
         top_p=cfg['llm']['top_p'],

@@ -22,7 +22,7 @@ data:
 strategy:
   distance_metric: "DTW"       # dist
   neighbor_count: 15            # nei_number
-  # encoding_style: "DFLoader"   # encoding_style
+  encoding_style: "DFLoader"   # encoding_style
 
 # --- 大模型参数 ---
 llm:
