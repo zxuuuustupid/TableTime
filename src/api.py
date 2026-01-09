@@ -53,12 +53,21 @@ class api_output(nn.Module):
                     # print("[DEBUG] Received non-empty result.")
                     return result
                 else:
-                    # print("⚠️ API returned an empty response. Retrying...")
+                    # print(" API returned an empty response. Retrying...")
                     time.sleep(1)
 
             except Exception as e:
-                print(f"❌ Exception occurred: {e}")
+                print(f"Exception occurred: {e}")
                 time.sleep(2)
+
+
+import os
+import time
+import json
+import traceback
+from dotenv import load_dotenv
+from openai import OpenAI
+import torch.nn as nn
 
 class api_output_openai(nn.Module):
     def __init__(self, model, temperature, top_p, max_tokens):
@@ -77,82 +86,105 @@ class api_output_openai(nn.Module):
         }
 
     def forward(self, content):
-        while True:
+        max_retries = 3
+        retries = 0
+
+        while retries < max_retries:
             try:
+                print(f"[DEBUG] Attempting OpenAI API call (try {retries + 1}/{max_retries})...")
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[{"role": "user", "content": content}],
                     **self.params
                 )
+
+                # [关键修改 1] 打印完整的服务器原始响应，用于调试
+                # 将 response 对象转为字典再用 json 打印，格式清晰
+                raw_response_dict = response.model_dump()
+                print("--- [DEBUG] Full Server Response ---")
+                print(json.dumps(raw_response_dict, indent=2, ensure_ascii=False))
+                print("------------------------------------")
                 
-                # 直接获取回答内容
-                result = response.choices[0].message.content
+                # 健壮性检查
+                if not response.choices:
+                    print(f"[WARNING] 'choices' field is empty. Retrying... (try {retries + 1}/{max_retries})")
+                    retries += 1
+                    time.sleep(2)
+                    continue
                 
-                if result and result.strip():
-                    return result.strip()
+                # 进一步检查 message content
+                message = response.choices[0].message
+                result = message.content.strip() if message and message.content else ""
                 
-                print("⚠️ Empty response, retrying...")
+                if result:
+                    return result
+                
+                # [关键修改 2] 详细说明为什么是 Empty
+                finish_reason = response.choices[0].finish_reason
+                print(f"[WARNING] Received empty 'content'. Finish Reason: '{finish_reason}'. Retrying... (try {retries + 1}/{max_retries})")
+                retries += 1
                 time.sleep(1)
 
             except Exception as e:
-                print(f"❌ API Error: {e}")
+                # [关键修改 3] 提供最详尽的异常信息
+                print("="*60)
+                print(f"[FATAL] An Exception Occurred During OpenAI API Call (try {retries + 1}/{max_retries})")
+                print(f"   - Error Type: {type(e).__name__}")
+                print(f"   - Error Message: {e}")
+                
+                # OpenAI 的 SDK 错误通常会把详细信息放在 e.response.text 或 e.body
+                if hasattr(e, 'response') and hasattr(e.response, 'text'):
+                    print(f"   - Server Response Body: {e.response.text}")
+                elif hasattr(e, 'body'):
+                    print(f"   - Error Body: {e.body}")
+
+                print("   - Full Traceback:")
+                traceback.print_exc()
+                print("="*60)
+                
+                retries += 1
                 time.sleep(2)
-                
-    # def forward(self, content):
-    #     # 1. 先打印一下输入长度，作为证据之一
-    #     print(f"[Debug] Sending request with content length: {len(content)} characters...")
         
-    #     retries = 0
-    #     max_retries = 3 # 不要无限重试，防止封号或刷爆余额
+        print("[ERROR] API call failed after multiple retries.")
+        return "[API_CALL_FAILED]"
 
-    #     while retries < max_retries:
-    #         try:
-    #             response = self.client.chat.completions.create(
-    #                 model=self.model,
-    #                 messages=[{"role": "user", "content": content}],
-    #                 **self.params
-    #             )
-                
-    #             # 2. 检查 response 是否完整
-    #             # 如果因为Token爆炸导致服务商返回了空数据，这里会捕获到
-    #             if not hasattr(response, 'choices') or response.choices is None:
-    #                 print(f"[Fatal Error] API returned invalid response (Likely Context Limit Exceeded). Raw: {response}")
-    #                 return "ERROR_CONTEXT_LIMIT"
+# class api_output_openai(nn.Module):
+#     def __init__(self, model, temperature, top_p, max_tokens):
+#         super().__init__()
+#         load_dotenv()
+#         self.client = OpenAI(
+#             api_key=os.getenv("OPENAI_API_KEY"),
+#             base_url="https://api.zhizengzeng.com/v1"
+#         )
+#         self.model = model
+#         self.params = {
+#             "temperature": temperature,
+#             "top_p": top_p,
+#             "max_tokens": max_tokens,
+#             "stream": False
+#         }
 
-    #             # 直接获取回答内容
-    #             result = response.choices[0].message.content
+#     def forward(self, content):
+#         while True:
+#             try:
+#                 response = self.client.chat.completions.create(
+#                     model=self.model,
+#                     messages=[{"role": "user", "content": content}],
+#                     **self.params
+#                 )
                 
-    #             if result and result.strip():
-    #                 return result.strip()
+#                 # 直接获取回答内容
+#                 result = response.choices[0].message.content
                 
-    #             print("⚠️ Empty response, retrying...")
-    #             retries += 1
-    #             time.sleep(1)
+#                 if result and result.strip():
+#                     return result.strip()
+                
+#                 print("[WARNING] Empty response, retrying...")
+#                 time.sleep(1)
 
-    #         except Exception as e:
-    #             error_msg = str(e)
-    #             print(f"❌ API Error: {error_msg}")
-                
-    #             # 3. 关键逻辑：如果是以下错误，直接停止，不要重试！
-    #             # 这些关键词意味着再试多少次都没用，必须报错给导师看
-    #             fatal_keywords = [
-    #                 "context_length_exceeded",  # 官方报错
-    #                 "maximum context length",   # 常见报错
-    #                 "400",                      # Bad Request
-    #                 "NoneType",                 # 你的当前报错（数据结构崩了）
-    #                 "rate limit"                # 此时也别硬试了
-    #             ]
-                
-    #             if any(k in error_msg for k in fatal_keywords):
-    #                 print("\n[CRITICAL FAILURE] STOPPING EXECUTION.")
-    #                 print("原因: Prompt 太长，超过模型上下文窗口限制。")
-    #                 print("建议: 请截图此报错给导师，证明 Batch 100 样本方案不可行。")
-    #                 return "ERROR_TOKEN_OVERFLOW" # 返回错误标记，结束循环
-                
-    #             retries += 1
-    #             time.sleep(2)
-        
-    #     return "ERROR_MAX_RETRIES"
+#             except Exception as e:
+#                 print(f"[ERROR] API Error: {e}")
+#                 time.sleep(2)
                 
                 
 class api_output_openai_xiaomi(nn.Module):
@@ -186,10 +218,10 @@ class api_output_openai_xiaomi(nn.Module):
                 if result and result.strip():
                     return result.strip()
                 
-                print("⚠️ Empty response, retrying...")
+                print("[WARNING] Empty response, retrying...")
                 time.sleep(1)
 
             except Exception as e:
-                print(f"❌ API Error: {e}")
+                print(f"[ERROR] API Error: {e}")
                 time.sleep(2)
                 

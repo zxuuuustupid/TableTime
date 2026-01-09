@@ -24,3 +24,4 @@ __pycache__/
 results/
 prompts/zh-bjtu.md
 *.txt
+result/BJTU-gearbox/DFLoader/DTW_dist/code/*.py
