@@ -77,7 +77,7 @@ if __name__ == "__main__":
     fault_csv = f"F:\\Project\\TripletLoss\\BJTU-RAO Bogie Datasets\\Data\\BJTU_RAO_Bogie_Datasets\\{fault_type}\\Sample_1\\data_gearbox_{fault_type}_20Hz_0kN.csv"
     target_rel_path = "data/BJTU-gearbox"
 
-    processor = TrainDataGenerator(window_size=100, overlap_rate=0.75)
+    processor = TrainDataGenerator(window_size=1000, overlap_rate=0.75)
     
     try:
         processor.process_and_save(health_csv, fault_csv, target_rel_path)

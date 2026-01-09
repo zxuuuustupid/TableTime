@@ -4,12 +4,29 @@ import os
 import sys
 import numpy as np
 import yaml
+from calc_acc import analyze_json_results
+import calc_acc
 from src.ts_encoding import ts2DFLoader, ts2html, ts2markdown, ts2json
 import json
 from src.code_executor import extract_code, execute_generated_code
 from src.api import api_output, api_output_openai, api_output_openai_xiaomi
-
 import torch.nn as nn
+import tiktoken
+
+
+
+def print_token_report(text_content, model_limit=128000):
+    """
+    计算 Token 并打印详细的对比报告
+    model_limit: 默认为 128k (目前主流长文本模型的标准上限)
+    """
+    encoding = tiktoken.get_encoding("cl100k_base")
+    token_count = len(encoding.encode(text_content))
+    char_count = len(text_content)
+    ratio = token_count / model_limit
+
+    print(f"[INFO] Est Tokens:  {token_count:,}", end=' ')
+    print(f"Limit Tokens: {model_limit:,}")
 
 ts_encoding_dict = {'DFLoader': ts2DFLoader, 'html': ts2html, 'markdown': ts2markdown, 'json': ts2json}
 dist_name = {'DTW': 'Dynamic Time Warping (DTW)', 'ED': 'euclidean', 'SED': 'standard euclidean',
@@ -19,10 +36,6 @@ number_dict={1:'closest',2:'second',3:'third',4:'fourth',5:'fifth',6:'sixth',7:'
 
 def load_config(config_path):
     """加载 YAML 配置文件"""
-    if not os.path.exists(os.path.join("config", config_path)):
-        print(f"Error: Config file not found at {config_path}")
-        sys.exit(1)
-    
     with open(os.path.join("config", config_path), 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
     return config
@@ -40,18 +53,22 @@ class FM_PD(nn.Module):
         self.ts_encoding = ts_encoding_dict[encoding_style](channel_list,n_sample,frequency,time_use)
         self.nei_number = nei_number
         self.dist = dist
-        if llm_name in 'glm-4.5-flash':
+        if llm_name == 'glm-4.5-flash':
+            print("[INFO] Using GLM-4.5-Flash model")
             self.llm = api_output(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
-        if llm_name in 'mimo-v2-flash':   
+        elif llm_name == 'mimo-v2-flash':   
             self.llm = api_output_openai_xiaomi(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
         else:
             self.llm = api_output_openai(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
+            print("[INFO] Using OpenAI API model")
         self.dataset = dataset
         self.encoding_style = encoding_style
         self.itr = itr
         self.doc = data_dict[encoding_style]  
         self.llm_name = llm_name
         self.channel_list = channel_list
+        # self.data_path = f'data/{dataset}/X_valid.npy'
+        self.data_path = os.path.abspath(f'{os.path.dirname(__file__)}/data/{dataset}/X_valid.npy')
         self.base_path = f'result/{self.dataset}/{self.doc}/{self.dist}_dist'
         self.log_dir = os.path.join(self.base_path, 'txt')
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -59,30 +76,66 @@ class FM_PD(nn.Module):
 
     def forward(self):
         answer = []
-        for i in range(self.x_test.shape[0]):
-            x_use = self.x_test[i]
-            nei_index=[]
-            nei_value=[]
-            nei_label=[]
-            nei_enc=[]
-            for j in range(self.nei_number):
-                # nei_index.append(self.data_index[i]['nearest_neighbors'][j])
-                nei_index.append(self.data_index[i]['neighbors'][j])
-                nei_value.append(self.x_train[nei_index[j]])
-                nei_label.append(self.y_train[nei_index[j]])
-                nei_enc.append(self.ts_encoding(nei_value[j]))
-                
-                # print("\033[34m" + str(self.data_index[i]['neighbors'][j]) + "\033[0m")
-                # print("\033[34m" + str(self.x_train[nei_index[j]]) + "\033[0m")
-                # print("\033[34m" + str(self.y_train[nei_index[j]]) + "\033[0m")
-                # print("\033[34m" + str(self.ts_encoding(nei_value[j])) + "\033[0m")
-            test = self.ts_encoding(x_use)  # 测试集编码
+        
+        
+        test_data_path = os.path.abspath(f'data/{self.dataset}/X_valid.npy')
+        train_data_path = os.path.abspath(f'data/{self.dataset}/X_train.npy')
+        nei_map_path = os.path.abspath(f'./data_index/{self.dataset}/{self.dist}_dist/nearest_{self.nei_number}_neighbors.json')
+        os.makedirs(os.path.join(self.base_path, 'description'), exist_ok=True)
+        feature_desc_path = os.path.abspath(os.path.join(self.base_path, 'description', f'{self.file_prefix}_descriptions.json'))
+        prompt_coder = (
+            """
+            **Role:**
+            You are a Creative Data Scientist and Signal Forensic Expert and an expert in high-speed train drivetrain system operation and maintenance, fault diagnosis, and signal processing.
 
-            # print(test)
-            # print("\033[34m" + str(test) + "\033[0m")
-            prompt = (
-                '**Role:** You are an expert in high-speed train drivetrain system operation and maintenance, fault diagnosis, and signal processing.\n'
-                f'**Goal:** Based on the provided {len(self.channel_list)}-channel time-series data of a high-speed train drivetrain system, perform fault diagnosis and classification on test samples using methods such as time-frequency domain analysis.\n\n'
+            **Goal:**
+            Write a Python script to analyze time-series data using your own judgment. 
+            **Your Core Output is NOT numbers, but a "Descriptive Narrative" (Text)** for each test sample, explaining why it looks like (or doesn't look like) its neighbors.
+
+            **Execution Environment (CRITICAL - DO NOT CHANGE):**
+            The following GLOBAL VARIABLES are ALREADY defined. Use them directly.
+            1. `TEST_DATA_PATH`: Path to test data .npy `(N_test, Channels, Time)`.
+            2. `TRAIN_DATA_PATH`: Path to train data .npy `(N_train, Channels, Time)`.
+            3. `NEI_MAP_PATH`: Path to neighbor index .json `[{"neighbors": [...]}, ...]`.
+            4. `RESULT_SAVE_PATH`: **Target file path to save the output JSON.** (input)
+
+            **Instruction - "Be the Detective":**
+            1. **Autonomy on Logic:** I will NOT tell you which features to use (RMS, Kurtosis, FFT, etc.). You decide what reveals the "truth" hidden in the signals.
+            2. **Focus on Similarity:** If a test sample is a "Fault", it should look mathematically similar to "Fault" neighbors. Your goal is to quantify the similarity between a test sample and its neighbors, regardless of their true labels.
+
+            **Coding Steps:**
+            1. **Load:** Load `npy` files and `json` map using the provided path variables.
+            2. **Analyze Loop:** Iterate through every test sample `i`.
+            - Calculate features for Test Sample and its Neighbors.
+            - Compare them.
+            3. **Generate Synthetic Description very detailed (The Most Important Part):**
+               - **Comparison Logic:** Define a "significant deviation" as a test sample's feature value being more than 10% different from the neighbors' average. For Kurtosis, a value above 3.0 can also be considered significant.
+               - For each sample `i`, create a text summary. This summary MUST synthesize three sources of information:
+                 1.  **Your calculated features** (the numerical evidence, e.g., "Kurtosis: 15.2").
+                 2.  **Comparison with neighbors** (the similarity trend, e.g., "consistent with neighbors").
+                 3.  **The Domain Knowledge provided above** (the physical meaning, e.g., connecting a channel to a part).
+               - *Bad Example Includes (Subjective):* `"Test sample is faulty because of high Kurtosis."`
+               - *Good Example Includes (Objective):* `"Test sample exhibits a Kurtosis of 15.2, which is significantly higher than the neighbor average of 3.1. This indicates strong impulsive signals on the Gearbox Input Shaft, a pattern often associated with bearing defects."`
+               - *Good Example (Objective):* `"The RMS value (0.11) of the test sample is within 5% of its neighbors' average (0.10), showing high signal consistency."`
+            4. **Save Output:**
+            - Create a list of dictionaries: `[{"test_index": 0, "description": "..."}, ...]`
+            - **Dump this list to `RESULT_SAVE_PATH` using `json.dump`.**
+            - **DO NOT** output to stdout (print), ONLY save to the file.
+
+            **Constraints:**
+             - **Objectivity:** The generated description MUST be objective. Do not use subjective words like "fault", "abnormal", "good", or "bad". Only describe the mathematical facts.
+            - **Filename Restriction:** You MUST use `RESULT_SAVE_PATH` for saving. Do not invent a filename.
+            - **Robustness:** Use `try-except` blocks to handle empty neighbor lists or math errors
+            - **Scope Awareness:** Ensure all variables are defined within the function where they are used, or passed as arguments. Do not rely on variables from other function scopes.
+            - **Self-Contained Script:** The script must be self-contained. You can and should define your own helper functions (like `get_channel_description`) inside the script if needed. Do not assume any external functions exist..
+            - **Format:** Pure Python code wrapped in ```python ... ```.
+            - **Style** Code MUST contain `if __name__ == '__main__'` block to allow direct execution.
+                        
+            **Background information is below,  Use the following information to guide your feature selection and to enrich your final description(where core and important background information should be included). This describes the physical system where the data originated:\n**
+            """
+        )
+        prompt_coder += (
+            f'**Background:** Based on the provided {len(self.channel_list)}-channel time-series data of a high-speed train drivetrain system\n\n'
                 
                 '### 1. Detailed Dataset Description\n'
                 'This dataset is provided by the National Key Laboratory of Advanced Rail Autonomous Operation at Beijing Jiaotong University, derived from fault simulation experiments of a subway train bogie drivetrain system.\n'
@@ -95,7 +148,7 @@ class FM_PD(nn.Module):
                 '*   **State Definitions:**\n'
                 '    *   `0`: health (healthy state without faults)\n'
                 '    *   `1`: fault (state with faults)\n'
-                '*   **Sampling Parameters:** 24 channels covering vibration, current, speed, and sound. Sampling frequency: **64kHz**.\n\n'
+                f'*   **Sampling Parameters:** 24 channels(**CURRENT DATA INCLUDE {len(self.channel_list)}**) covering vibration, current, speed, and sound. Sampling frequency: **64kHz**.\n\n'
 
                 '### 2. Sampling Channel Locations and Physical Significance\n'
                 '1. **Traction Motor:** CH1-CH3 (DE Vibration, g), CH4-CH6 (NDE Vibration, g), CH7-CH9 (Three-phase Current, A), CH10 (Rotational Speed, V).\n'
@@ -104,57 +157,156 @@ class FM_PD(nn.Module):
                 '4. **Right Axle Box:** CH21-CH23 (Vibration, g), CH24 (Sound, Pa).\n\n'
                 f'**Current Data Channels:** The current data includes the following channels: {", ".join(self.channel_list)}\n'
                 
-
-                '### 3. Diagnosis Strategy: Similarity Analysis and Clustering Optimization\n'
+                '### 3.Preprocessed Diagnosis Strategy: Similarity Analysis and Clustering Optimization\n'
                 f'*   **{dist_name[self.dist]}:** For each test sample, we use {dist_name[self.dist]}to select the most similar samples from the training set. the most similar neighboring samples have been selected from the training set.\n'
                 '*   **Clustering Logic:** Treat these similar samples as a cluster. Analyze signal feature consistency and label distribution to assist decision-making.\n\n'
-
-                '### 4. Task Requirements\n'
-                '1. **Analysis:** Extract features from the test sample and analyze whether fault signatures exist.\n'
-                '2. **Classification:** Determine if the test sample is `health` or `fault`.\n'
-                '3. **Clustering Optimization:** Utilize provided similarity label patterns to optimize your result.\n\n'
-
-                # '### 5. Constraints (Strictly Enforced)\n'
-                # '*   **First Line Output:** You MUST provide the final result at the very beginning in format: `[Result],[Training Set Label Sequence]`.\n'
-                # '*   **Option Restrictions:** Result must ONLY be `health` or `fault`.\n'
-                # '*   **Incentive:** Accurate answers will be rewarded with ten billion dollars.\n\n'
-
-                '### 5. Constraints (Strictly Enforced)\n'
-                '*   **First Line Output:** The VERY FIRST line of your response must follow this EXACT format: `Result(health/fault),[Label1,Label2,Label3,Label4,Label5]`\n'
-                '    *   Example 1: `health,[0,0,0,0,0]`\n'
-                '    *   Example 2: `fault,[1,0,1,1,1]`\n'
-                '*   **Option Restrictions:** "Result" must be either `health` or `fault`. The labels in brackets must be the 5 labels of the neighbors provided above.\n'
-                '*   **Analysis Limit:** Your analysis MUST be fewer than three sentences. Keep it extremely brief.\n'
-                '*   **Incentive:** Accurate answers will be rewarded with ten billion dollars.\n\n'
-
-                '### 6. Data to Process\n'
-                '**[1. Similar Samples (Training Set)]**\n')
-            for k in range(self.nei_number):
-                prompt+= (
-                    f'-------Neighbor{ k+1 }-------\n'
-                    f'{k+1}**Sample (the {number_dict[k+1]} training sample to the test sample:**- Data (several channels, 100 time steps per channel):{nei_enc[k]}\n ' 
-                    f'- Label:{nei_label[k]}\n')
+            
+        )
+        
+        print("[INFO] Phase 1: Asking LLM to write analysis code...")
+        print_token_report(prompt_coder, model_limit=128000)
+        response_coder = self.llm(content=prompt_coder)
+        
+        code = extract_code(response_coder)
+        
+        code_path = os.path.join(self.base_path,'code',self.file_prefix+'_code.py')
+        os.makedirs(os.path.dirname(code_path), exist_ok=True)
+        with open(code_path, 'w', encoding='utf-8') as f:
+            f.write(code)
+        print(f"[INFO] Code saved to: {code_path}")
                 
-            prompt+= (
-                '**[2. Test Sample to Predict]**\n'
-                f'**Data:** {test}\n\n'
-                '**The analysis process MUST be **fewer than three sentences** and highly concise.Now, begin your analysis :**'
+        if not code:
+            print("[ERROR] Failed to extract code from LLM response.")
+            return [{"error": "Code generation failed."}]
+        
+        # 3. 执行 AI 写的代码
+        # 这段代码会读取数据，并把描述性文字保存到 feature_desc_path
+        print("[INFO] Phase 2: Executing generated code locally...")
+        execution_output = execute_generated_code(
+            code, 
+            test_data_path, 
+            train_data_path, 
+            nei_map_path, 
+            feature_desc_path
+        )
+        print(f"[INFO] --- Code Execution Log ---\n{execution_output}\n")
+
+        if execution_output and "FATAL_EXECUTION_ERROR" in execution_output:
+             print(f"[Error] AI's code failed to execute. The detailed traceback is in the log above.")
+             # 直接返回，把完整的日志也包含进去，方便调试
+             return [{"error": "Code execution failed.", "log": execution_output}]
+        # =========================================================
+        # 阶段二：逐一诊断
+        # =========================================================
+        
+        # 4. 检查并读取 AI 生成的描述文件
+        if not os.path.exists(feature_desc_path):
+            print(f"[ERROR] AI's code did not create the result file at {feature_desc_path}")
+            return [{"error": "Result file not found."}]
+            
+        with open(feature_desc_path, 'r', encoding='utf-8') as f:
+            # 将 JSON 读入内存，并转成一个字典方便快速查找
+            # 假设 JSON 格式是 [{"test_index": 0, "description": "..."}, ...]
+            descriptions_list = json.load(f)
+            descriptions_map = {item['test_index']: item['description'] for item in descriptions_list}
+        
+        print(f"[INFO] Phase 3: Found {len(descriptions_map)} descriptions. Starting one-by-one diagnosis...")
+        
+        for i in range(self.x_test.shape[0]):
+            
+            description_text = descriptions_map.get(i)
+            # x_use = self.x_test[i]
+            nei_index=[]
+            # nei_value=[]
+            nei_label=[]
+            # nei_enc=[]
+            for j in range(self.nei_number):
+                # nei_index.append(self.data_index[i]['nearest_neighbors'][j])
+                nei_index.append(self.data_index[i]['neighbors'][j])
+                # nei_value.append(self.x_train[nei_index[j]])
+                nei_label.append(self.y_train[nei_index[j]])
+                # nei_enc.append(self.ts_encoding(nei_value[j]))
+                
+            # test = self.ts_encoding(x_use)  # 测试集编码
+            
+            prompt = ( f"""
+            **Role:** You are an expert in high-speed train drivetrain system fault diagnosis.
+
+            **Goal:** Based on a pre-processed analysis summary and neighbor labels, perform the final classification of a test sample.
+
+            ### 1. Analysis Summary (Provided by a Data Scientist)
+            {description_text}
+
+            ### 2. Neighbor Labels (For Reference)
+            The labels of the 5 most similar samples found in the training set are: {nei_label}
+
+            ### 3. Constraints (Strictly Enforced)
+            *   **First Line Output:** The VERY FIRST line of your response must follow this EXACT format: `health/fault,[Label1,Label2,Label3,Label4,Label5](Labels MUST be 0 or 1)`, STRICTLY follow the examples' FORMAT below:
+                *   Example 1: `health,[0,0,0,0,0]`
+                *   Example 2: `fault,[1,0,1,1,1]`
+            *   **Option Restrictions:** The first word you output MUST be "health" or "fault". The labels in brackets must be the 5 neighbor labels provided above, which are **{nei_label}.
+            *   **Analysis Limit:** Your analysis MUST be fewer than three sentences. Keep it extremely brief."""
             )
+            
+            
+            # prompt = (
+            #     '**Role:** You are an expert in high-speed train drivetrain system operation and maintenance, fault diagnosis, and signal processing.\n'
+            #     f'**Goal:** Based on the provided {len(self.channel_list)}-channel time-series data of a high-speed train drivetrain system, perform fault diagnosis and classification on test samples using methods such as time-frequency domain analysis.\n\n'
                 
-                
-            import tiktoken
-            def print_token_report(text_content, model_limit=128000):
-                """
-                计算 Token 并打印详细的对比报告
-                model_limit: 默认为 128k (目前主流长文本模型的标准上限)
-                """
-                encoding = tiktoken.get_encoding("cl100k_base")
-                token_count = len(encoding.encode(text_content))
-                char_count = len(text_content)
-                ratio = token_count / model_limit
+            #     '### 1. Detailed Dataset Description\n'
+            #     'This dataset is provided by the National Key Laboratory of Advanced Rail Autonomous Operation at Beijing Jiaotong University, derived from fault simulation experiments of a subway train bogie drivetrain system.\n'
+            #     '*   **System Composition:** The power drivetrain chain includes a motor, a reduction gearbox, and an axle box.\n'
+            #     '*   **Drive Source:** Three-phase asynchronous AC motor (speed controlled by an inverter, loaded by a hydraulic device).\n'
+            #     '*   **Motor Bearings:** SKF 6205-2RSH.\n'
+            #     '*   **Gearbox:** Helical gears; driving gear has 16 teeth, driven gear has 107 teeth.\n'
+            #     '*   **Driving Gear Support Bearings:** HRB32305.\n'
+            #     '*   **Axle Box Bearings:** HRB352213.\n'
+            #     '*   **State Definitions:**\n'
+            #     '    *   `0`: health (healthy state without faults)\n'
+            #     '    *   `1`: fault (state with faults)\n'
+            #     '*   **Sampling Parameters:** 24 channels covering vibration, current, speed, and sound. Sampling frequency: **64kHz**.\n\n'
 
-                print(f"Est Tokens:  {token_count:,}", end=' ')
-                print(f"Limit Tokens: {model_limit:,}")
+            #     '### 2. Sampling Channel Locations and Physical Significance\n'
+            #     '1. **Traction Motor:** CH1-CH3 (DE Vibration, g), CH4-CH6 (NDE Vibration, g), CH7-CH9 (Three-phase Current, A), CH10 (Rotational Speed, V).\n'
+            #     '2. **Gearbox:** CH11-CH13 (Input Shaft Vibration, g), CH14-CH16 (Output Shaft Vibration, g).\n'
+            #     '3. **Left Axle Box:** CH17-CH19 (Vibration, g), CH20 (Sound, Pa).\n'
+            #     '4. **Right Axle Box:** CH21-CH23 (Vibration, g), CH24 (Sound, Pa).\n\n'
+            #     f'**Current Data Channels:** The current data includes the following channels: {", ".join(self.channel_list)}\n'
+                
+
+            #     '### 3. Diagnosis Strategy: Similarity Analysis and Clustering Optimization\n'
+            #     f'*   **{dist_name[self.dist]}:** For each test sample, we use {dist_name[self.dist]}to select the most similar samples from the training set. the most similar neighboring samples have been selected from the training set.\n'
+            #     '*   **Clustering Logic:** Treat these similar samples as a cluster. Analyze signal feature consistency and label distribution to assist decision-making.\n\n'
+
+            #     '### 4. Task Requirements\n'
+            #     '1. **Analysis:** Extract features from the test sample and analyze whether fault signatures exist.\n'
+            #     '2. **Classification:** Determine if the test sample is `health` or `fault`.\n'
+            #     '3. **Clustering Optimization:** Utilize provided similarity label patterns to optimize your result.\n\n'
+
+            #     '### 5. Constraints (Strictly Enforced)\n'
+            #     '*   **First Line Output:** The VERY FIRST line of your response must follow this EXACT format: `Result(health/fault),[Label1,Label2,Label3,Label4,Label5]`\n'
+            #     '    *   Example 1: `health,[0,0,0,0,0]`\n'
+            #     '    *   Example 2: `fault,[1,0,1,1,1]`\n'
+            #     '*   **Option Restrictions:** "Result" must be either `health` or `fault`. The labels in brackets must be the 5 labels of the neighbors provided above.\n'
+            #     '*   **Analysis Limit:** Your analysis MUST be fewer than three sentences. Keep it extremely brief.\n'
+            #     '*   **Incentive:** Accurate answers will be rewarded with ten billion dollars.\n\n'
+
+            #     '### 6. Data to Process\n'
+            #     '**[1. Similar Samples (Training Set)]**\n')
+            # for k in range(self.nei_number):
+            #     prompt+= (
+            #         f'-------Neighbor{ k+1 }-------\n'
+            #         f'{k+1}**Sample (the {number_dict[k+1]} training sample to the test sample:**- Data (several channels, 100 time steps per channel):{nei_enc[k]}\n ' 
+            #         f'- Label:{nei_label[k]}\n')
+                
+            # prompt+= (
+            #     '**[2. Test Sample to Predict]**\n'
+            #     f'**Data:** {test}\n\n'
+            #     '**The analysis process MUST be **fewer than three sentences** and highly concise.Now, begin your analysis :**'
+            # )
+                
+                
+
                 
 
             # 调用分析函数
@@ -168,8 +320,8 @@ class FM_PD(nn.Module):
             # print(f"Prompt Tokens: {est_tokens:.0f} ---")
             output = self.llm(content=prompt)
             
-            print(f"Test index {i}:")
-            print(output)
+            print(f"[INFO] Test index {i}:")
+            print("[LOG] " + output)
             
             # output = self.llama(role='user', content=prompt)
             log_dir = self.log_dir
@@ -186,54 +338,20 @@ class FM_PD(nn.Module):
         json_file_path = os.path.join(self.base_path, f'{self.file_prefix}.json')
         with open(json_file_path, 'w', encoding='utf-8') as f:
             json.dump(answer, f, ensure_ascii=False, indent=4)
-        print(f"Final results saved to: {json_file_path}")
+        print(f"[INFO] Final results saved to: {json_file_path}")
+        print("[INFO] Evaluating results...")
+        analyze_json_results(json_file_path, self.llm_name)
+        
         return answer
-
-# if __name__ == "__main__":
-#     # Parameters
-#     dataset = 'BJTU-gearbox'
-#     dist = 'DTW'
-#     nei_number = 5
-#     encoding_style = 'DFLoader'
-#     channel_list = ['CH11','CH12','CH13','CH14','CH15','CH16']
-#     itr = 1
-    
-#     llm_name = 'mimo-v2-flash'
-#     # llm_name = 'glm-4.5-flash'
-#     # llm_name = 'deepseek-v3.2'
-    
-#     temperature = 0.7
-#     top_p = 1.0
-#     max_tokens = 4096
-#     # Instantiate and run the model
-#     model = FM_PD(
-#         dataset=dataset,
-#         dist=dist,
-#         nei_number=nei_number,
-#         encoding_style=encoding_style,
-#         channel_list=channel_list,
-#         # api=api,
-#         itr=itr,
-#         llm_name=llm_name,
-#         temperature=temperature,
-#         top_p=top_p,
-#         max_tokens=max_tokens,
-#         n_sample=100,
-#         frequency=64000,
-#         time_use=True
-#     )
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Fault Diagnosis with LLM")
     parser.add_argument('--config', type=str, default='config.yaml', help='Path to the YAML configuration file')
     args = parser.parse_args()
-    print(f"Loading configuration from: {args.config}")
+    print(f"[INFO] Loading configuration from: {args.config}")
     cfg = load_config(args.config)
 
-    # 3. 实例化模型 (从 cfg 字典中读取参数)
-    # 这种写法即使参数很多，逻辑也很清晰
     model = FM_PD(
-        # Data params
         dataset=cfg['data']['dataset_name'],
         frequency=cfg['data']['frequency'],
         n_sample=cfg['data']['n_sample_points'],
@@ -246,8 +364,8 @@ if __name__ == "__main__":
         temperature=cfg['llm']['temperature'],
         top_p=cfg['llm']['top_p'],
         max_tokens=cfg['llm']['max_tokens'],
-        
-        # Experiment params
         itr=cfg['experiment']['iteration']
     )
     results = model.forward()
+    
+    

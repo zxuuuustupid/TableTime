@@ -4,9 +4,7 @@ import numpy as np
 from src.ts_encoding import ts2DFLoader, ts2html, ts2markdown, ts2json
 import json
 from src.api import api_output, api_output_openai, api_output_openai_xiaomi
-
 import torch.nn as nn
-
 ts_encoding_dict = {'DFLoader': ts2DFLoader, 'html': ts2html, 'markdown': ts2markdown, 'json': ts2json}
 dist_name = {'DTW': 'Dynamic Time Warping (DTW)', 'ED': 'euclidean', 'SED': 'standard euclidean',
              'MAN': 'Manhattan distance'}
@@ -172,11 +170,8 @@ if __name__ == "__main__":
     dist = 'DTW'
     nei_number = 5
     encoding_style = 'json'
-    # channel_list = ['F3', 'F1', 'Fz', 'F2', 'F4', 'FC5', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4', 'FC6', 'C5', 'C3', 'C1', 'Cz', 'C2', 'C4', 'C6', 'CP5', 'CP3', 'CP1', 'CPz', 'CP2', 'CP4', 'CP6', 'O1', 'O2']
     channel_list = ['CH11','CH12','CH13','CH14','CH15','CH16']
- 
     itr = 1
-    
     # llm_name = 'mimo-v2-flash'
     # llm_name = 'glm-4.5-flash'
     llm_name = 'deepseek-v3.2'
