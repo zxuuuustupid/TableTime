@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 import os
 import numpy as np
 from src.ts_encoding import ts2DFLoader, ts2html, ts2markdown, ts2json
@@ -128,6 +128,28 @@ class FM_PD(nn.Module):
                 f'**Data:** {test}\n\n'
                 '**The analysis process MUST be **fewer than three sentences** and highly concise.Now, begin your analysis :**'
             )
+                
+                
+            import tiktoken
+            def print_token_report(text_content, model_limit=128000):
+                """
+                计算 Token 并打印详细的对比报告
+                model_limit: 默认为 128k (目前主流长文本模型的标准上限)
+                """
+                encoding = tiktoken.get_encoding("cl100k_base")
+                token_count = len(encoding.encode(text_content))
+                char_count = len(text_content)
+                ratio = token_count / model_limit
+
+                print(f"Est Tokens:  {token_count:,}", end=' ')
+                print(f"Limit Tokens: {model_limit:,}")
+                
+
+            # 调用分析函数
+            print_token_report(prompt, model_limit=128000)
+            # ================= [插入这段代码结束] =================
+
+            # print(f"Prompt Length: {len(prompt)}") 
                 
             # print("\033[34m" + str(prompt) + "\033[0m")
             est_tokens = len(prompt) * 0.8

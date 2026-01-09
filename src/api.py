@@ -76,8 +76,36 @@ class api_output_openai(nn.Module):
             "stream": False
         }
 
+    # def forward(self, content):
+    #     while True:
+    #         try:
+    #             response = self.client.chat.completions.create(
+    #                 model=self.model,
+    #                 messages=[{"role": "user", "content": content}],
+    #                 **self.params
+    #             )
+                
+    #             # 直接获取回答内容
+    #             result = response.choices[0].message.content
+                
+    #             if result and result.strip():
+    #                 return result.strip()
+                
+    #             print("⚠️ Empty response, retrying...")
+    #             time.sleep(1)
+
+    #         except Exception as e:
+    #             print(f"❌ API Error: {e}")
+    #             time.sleep(2)
+                
     def forward(self, content):
-        while True:
+        # 1. 先打印一下输入长度，作为证据之一
+        print(f"[Debug] Sending request with content length: {len(content)} characters...")
+        
+        retries = 0
+        max_retries = 3 # 不要无限重试，防止封号或刷爆余额
+
+        while retries < max_retries:
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
@@ -85,6 +113,12 @@ class api_output_openai(nn.Module):
                     **self.params
                 )
                 
+                # 2. 检查 response 是否完整
+                # 如果因为Token爆炸导致服务商返回了空数据，这里会捕获到
+                if not hasattr(response, 'choices') or response.choices is None:
+                    print(f"[Fatal Error] API returned invalid response (Likely Context Limit Exceeded). Raw: {response}")
+                    return "ERROR_CONTEXT_LIMIT"
+
                 # 直接获取回答内容
                 result = response.choices[0].message.content
                 
@@ -92,11 +126,33 @@ class api_output_openai(nn.Module):
                     return result.strip()
                 
                 print("⚠️ Empty response, retrying...")
+                retries += 1
                 time.sleep(1)
 
             except Exception as e:
-                print(f"❌ API Error: {e}")
+                error_msg = str(e)
+                print(f"❌ API Error: {error_msg}")
+                
+                # 3. 关键逻辑：如果是以下错误，直接停止，不要重试！
+                # 这些关键词意味着再试多少次都没用，必须报错给导师看
+                fatal_keywords = [
+                    "context_length_exceeded",  # 官方报错
+                    "maximum context length",   # 常见报错
+                    "400",                      # Bad Request
+                    "NoneType",                 # 你的当前报错（数据结构崩了）
+                    "rate limit"                # 此时也别硬试了
+                ]
+                
+                if any(k in error_msg for k in fatal_keywords):
+                    print("\n[CRITICAL FAILURE] STOPPING EXECUTION.")
+                    print("原因: Prompt 太长，超过模型上下文窗口限制。")
+                    print("建议: 请截图此报错给导师，证明 Batch 100 样本方案不可行。")
+                    return "ERROR_TOKEN_OVERFLOW" # 返回错误标记，结束循环
+                
+                retries += 1
                 time.sleep(2)
+        
+        return "ERROR_MAX_RETRIES"
                 
                 
 class api_output_openai_xiaomi(nn.Module):

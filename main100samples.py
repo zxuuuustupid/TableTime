@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 import os
 import numpy as np
 from src.ts_encoding import ts2DFLoader, ts2html, ts2markdown, ts2json
@@ -84,12 +84,9 @@ class FM_PD(nn.Module):
                 '3. **Clustering Optimization:** Utilize provided similarity label patterns to optimize your result.\n\n'
 
                 '### 5. Constraints (Strictly Enforced)\n'
-                '*   **First Line Output:** The VERY FIRST line of your response must follow this EXACT format: `Result(This word MUST be health or fault),[Label1,Label2,Label3,Label4,Label5]`\n'
-                '    *   Example 1: `health,[0,0,0,0,0]`\n'
-                '    *   Example 2: `fault,[1,0,1,1,1]`\n'
-                '*   **Option Restrictions:** "Result" must be either `health` or `fault`. The labels in brackets must be the 5 labels of the neighbors provided above.\n'
-                '*   **Analysis Limit:** Your analysis MUST be fewer than three sentences. Keep it extremely brief.\n'
-                '*   **Incentive:** Accurate answers will be rewarded with ten billion dollars.\n\n'
+                '*   **Output Format:** You MUST output a SINGLE JSON List containing results for ALL samples provided below.\n'
+                '*   **JSON Structure:** `[{"id": 0, "result": "health"}, {"id": 1, "result": "fault"}, ...]`\n'
+                '*   **Content:** The "result" must be `health` or `fault`. Do NOT output any analysis text.\n\n'
 
                 '### 6. Data to Process\n')
                 
@@ -106,7 +103,7 @@ class FM_PD(nn.Module):
                     nei_label.append(self.y_train[nei_index[j]])
                     nei_enc.append(self.ts_encoding(nei_value[j]))
                 test = self.ts_encoding(x_use)  # 测试集编码
-                
+                prompt += f'\n\n============= BATCH SAMPLE ID: {i} =============\n'
                 prompt+=('**[1. Similar Samples (Training Set)]**\n')
                 for k in range(self.nei_number):
                     prompt+= (
@@ -117,9 +114,32 @@ class FM_PD(nn.Module):
                 prompt+= (
                     '**[2. Test Sample to Predict]**\n'
                     f'**Data:** {test}\n\n'
-                    '**The analysis process MUST be **fewer than three sentences** and highly concise.Now, begin your analysis :**'
+                    ''
                 )
                 
+            prompt += (
+    '\n\n##################################################\n'
+                '**END OF DATA BATCH.**\n'
+                f'I have provided {self.x_test.shape[0]} samples (ID 0 to {self.x_test.shape[0]-1}).\n'
+                'Please immediately generate the JSON List containing predictions for ALL samples.\n'
+                'Remember: NO analysis text, ONLY JSON.\n'
+                'JSON Output:'
+            )
+            
+            import tiktoken
+            def print_token_report(text_content, model_limit=128000):
+                """
+                计算 Token 并打印详细的对比报告
+                model_limit: 默认为 128k (目前主流长文本模型的标准上限)
+                """
+                encoding = tiktoken.get_encoding("cl100k_base")
+                token_count = len(encoding.encode(text_content))
+                char_count = len(text_content)
+                ratio = token_count / model_limit
+
+                print(f"Est Tokens:  {token_count:,}", end=' ')
+                print(f"Limit Tokens: {model_limit:,}")
+            print_token_report(prompt, model_limit=128000)
             # print("\033[34m" + str(prompt) + "\033[0m")
             est_tokens = len(prompt) * 0.8
             # print(f"Prompt Tokens: {est_tokens:.0f} ---")
