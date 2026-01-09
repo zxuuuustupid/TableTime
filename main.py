@@ -4,12 +4,17 @@ import os
 import sys
 import numpy as np
 import yaml
+from calc_acc import analyze_json_results
+import calc_acc
 from src.ts_encoding import ts2DFLoader, ts2html, ts2markdown, ts2json
 import json
 from src.code_executor import extract_code, execute_generated_code
 from src.api import api_output, api_output_openai, api_output_openai_xiaomi
 import torch.nn as nn
 import tiktoken
+
+
+
 def print_token_report(text_content, model_limit=128000):
     """
     计算 Token 并打印详细的对比报告
@@ -76,8 +81,8 @@ class FM_PD(nn.Module):
         test_data_path = os.path.abspath(f'data/{self.dataset}/X_valid.npy')
         train_data_path = os.path.abspath(f'data/{self.dataset}/X_train.npy')
         nei_map_path = os.path.abspath(f'./data_index/{self.dataset}/{self.dist}_dist/nearest_{self.nei_number}_neighbors.json')
+        os.makedirs(os.path.join(self.base_path, 'description'), exist_ok=True)
         feature_desc_path = os.path.abspath(os.path.join(self.base_path, 'description', f'{self.file_prefix}_descriptions.json'))
-        
         prompt_coder = (
             """
             **Role:**
@@ -96,7 +101,7 @@ class FM_PD(nn.Module):
 
             **Instruction - "Be the Detective":**
             1. **Autonomy on Logic:** I will NOT tell you which features to use (RMS, Kurtosis, FFT, etc.). You decide what reveals the "truth" hidden in the signals.
-            2. **Focus on Similarity:** If a test sample is a "Fault", it should look mathematically similar to "Fault" neighbors. Find that evidence.
+            2. **Focus on Similarity:** If a test sample is a "Fault", it should look mathematically similar to "Fault" neighbors. Your goal is to quantify the similarity between a test sample and its neighbors, regardless of their true labels.
 
             **Coding Steps:**
             1. **Load:** Load `npy` files and `json` map using the provided path variables.
@@ -104,13 +109,13 @@ class FM_PD(nn.Module):
             - Calculate features for Test Sample and its Neighbors.
             - Compare them.
             3. **Generate Synthetic Description very detailed (The Most Important Part):**
-               - **Comparison Logic:** Define a "significant deviation" as a test sample's feature value being more than 15% different from the neighbors' average. For Kurtosis, a value above 3.5 can also be considered significant.
+               - **Comparison Logic:** Define a "significant deviation" as a test sample's feature value being more than 10% different from the neighbors' average. For Kurtosis, a value above 3.0 can also be considered significant.
                - For each sample `i`, create a text summary. This summary MUST synthesize three sources of information:
                  1.  **Your calculated features** (the numerical evidence, e.g., "Kurtosis: 15.2").
                  2.  **Comparison with neighbors** (the similarity trend, e.g., "consistent with neighbors").
                  3.  **The Domain Knowledge provided above** (the physical meaning, e.g., connecting a channel to a part).
-               - *Bad Example (Subjective):* `"Test sample is faulty because of high Kurtosis."`
-               - *Good Example (Objective):* `"Test sample exhibits a Kurtosis of 15.2, which is significantly higher than the neighbor average of 3.1. This indicates strong impulsive signals on the Gearbox Input Shaft, a pattern often associated with bearing defects."`
+               - *Bad Example Includes (Subjective):* `"Test sample is faulty because of high Kurtosis."`
+               - *Good Example Includes (Objective):* `"Test sample exhibits a Kurtosis of 15.2, which is significantly higher than the neighbor average of 3.1. This indicates strong impulsive signals on the Gearbox Input Shaft, a pattern often associated with bearing defects."`
                - *Good Example (Objective):* `"The RMS value (0.11) of the test sample is within 5% of its neighbors' average (0.10), showing high signal consistency."`
             4. **Save Output:**
             - Create a list of dictionaries: `[{"test_index": 0, "description": "..."}, ...]`
@@ -120,10 +125,13 @@ class FM_PD(nn.Module):
             **Constraints:**
              - **Objectivity:** The generated description MUST be objective. Do not use subjective words like "fault", "abnormal", "good", or "bad". Only describe the mathematical facts.
             - **Filename Restriction:** You MUST use `RESULT_SAVE_PATH` for saving. Do not invent a filename.
-            - **Robustness:** Use `try-except` blocks to handle empty neighbor lists or math errors.
+            - **Robustness:** Use `try-except` blocks to handle empty neighbor lists or math errors
+            - **Scope Awareness:** Ensure all variables are defined within the function where they are used, or passed as arguments. Do not rely on variables from other function scopes.
+            - **Self-Contained Script:** The script must be self-contained. You can and should define your own helper functions (like `get_channel_description`) inside the script if needed. Do not assume any external functions exist..
             - **Format:** Pure Python code wrapped in ```python ... ```.
-            
-            **Background informations are below,  Use the following information to guide your feature selection and to enrich your final description. This describes the physical system where the data originated:\n**
+            - **Style** Code MUST contain `if __name__ == '__main__'` block to allow direct execution.
+                        
+            **Background information is below,  Use the following information to guide your feature selection and to enrich your final description(where core and important background information should be included). This describes the physical system where the data originated:\n**
             """
         )
         prompt_coder += (
@@ -140,7 +148,7 @@ class FM_PD(nn.Module):
                 '*   **State Definitions:**\n'
                 '    *   `0`: health (healthy state without faults)\n'
                 '    *   `1`: fault (state with faults)\n'
-                '*   **Sampling Parameters:** 24 channels covering vibration, current, speed, and sound. Sampling frequency: **64kHz**.\n\n'
+                f'*   **Sampling Parameters:** 24 channels(**CURRENT DATA INCLUDE {len(self.channel_list)}**) covering vibration, current, speed, and sound. Sampling frequency: **64kHz**.\n\n'
 
                 '### 2. Sampling Channel Locations and Physical Significance\n'
                 '1. **Traction Motor:** CH1-CH3 (DE Vibration, g), CH4-CH6 (NDE Vibration, g), CH7-CH9 (Three-phase Current, A), CH10 (Rotational Speed, V).\n'
@@ -149,7 +157,6 @@ class FM_PD(nn.Module):
                 '4. **Right Axle Box:** CH21-CH23 (Vibration, g), CH24 (Sound, Pa).\n\n'
                 f'**Current Data Channels:** The current data includes the following channels: {", ".join(self.channel_list)}\n'
                 
-
                 '### 3.Preprocessed Diagnosis Strategy: Similarity Analysis and Clustering Optimization\n'
                 f'*   **{dist_name[self.dist]}:** For each test sample, we use {dist_name[self.dist]}to select the most similar samples from the training set. the most similar neighboring samples have been selected from the training set.\n'
                 '*   **Clustering Logic:** Treat these similar samples as a cluster. Analyze signal feature consistency and label distribution to assist decision-making.\n\n'
@@ -183,8 +190,10 @@ class FM_PD(nn.Module):
             feature_desc_path
         )
         print(f"[INFO] --- Code Execution Log ---\n{execution_output}\n")
-        if execution_output and ("[ERROR]" in execution_output or "failed" in execution_output.lower()):
-             print(f"[Error] AI's code failed to execute. See log above.")
+
+        if execution_output and "FATAL_EXECUTION_ERROR" in execution_output:
+             print(f"[Error] AI's code failed to execute. The detailed traceback is in the log above.")
+             # 直接返回，把完整的日志也包含进去，方便调试
              return [{"error": "Code execution failed.", "log": execution_output}]
         # =========================================================
         # 阶段二：逐一诊断
@@ -232,10 +241,10 @@ class FM_PD(nn.Module):
             The labels of the 5 most similar samples found in the training set are: {nei_label}
 
             ### 3. Constraints (Strictly Enforced)
-            *   **First Line Output:** The VERY FIRST line of your response must follow this EXACT format: `Result(health/fault),[Label1,Label2,Label3,Label4,Label5]`
+            *   **First Line Output:** The VERY FIRST line of your response must follow this EXACT format: `health/fault,[Label1,Label2,Label3,Label4,Label5](Labels MUST be 0 or 1)`, STRICTLY follow the examples' FORMAT below:
                 *   Example 1: `health,[0,0,0,0,0]`
                 *   Example 2: `fault,[1,0,1,1,1]`
-            *   **Option Restrictions:** "Result" must be either `health` or `fault`. The labels in brackets must be the 5 neighbor labels provided above, which are **{nei_label}.
+            *   **Option Restrictions:** The first word you output MUST be "health" or "fault". The labels in brackets must be the 5 neighbor labels provided above, which are **{nei_label}.
             *   **Analysis Limit:** Your analysis MUST be fewer than three sentences. Keep it extremely brief."""
             )
             
@@ -330,6 +339,9 @@ class FM_PD(nn.Module):
         with open(json_file_path, 'w', encoding='utf-8') as f:
             json.dump(answer, f, ensure_ascii=False, indent=4)
         print(f"[INFO] Final results saved to: {json_file_path}")
+        print("[INFO] Evaluating results...")
+        analyze_json_results(json_file_path, self.llm_name)
+        
         return answer
     
 if __name__ == "__main__":
@@ -355,3 +367,5 @@ if __name__ == "__main__":
         itr=cfg['experiment']['iteration']
     )
     results = model.forward()
+    
+    
