@@ -171,7 +171,7 @@ if __name__ == "__main__":
     dataset = 'BJTU-gearbox'
     dist = 'DTW'
     nei_number = 5
-    encoding_style = 'DFLoader'
+    encoding_style = 'json'
     # channel_list = ['F3', 'F1', 'Fz', 'F2', 'F4', 'FC5', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4', 'FC6', 'C5', 'C3', 'C1', 'Cz', 'C2', 'C4', 'C6', 'CP5', 'CP3', 'CP1', 'CPz', 'CP2', 'CP4', 'CP6', 'O1', 'O2']
     channel_list = ['CH11','CH12','CH13','CH14','CH15','CH16']
  

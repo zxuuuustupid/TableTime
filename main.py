@@ -1,8 +1,12 @@
+import argparse
 from datetime import datetime
 import os
+import sys
 import numpy as np
+import yaml
 from src.ts_encoding import ts2DFLoader, ts2html, ts2markdown, ts2json
 import json
+from src.code_executor import extract_code, execute_generated_code
 from src.api import api_output, api_output_openai, api_output_openai_xiaomi
 
 import torch.nn as nn
@@ -12,6 +16,16 @@ dist_name = {'DTW': 'Dynamic Time Warping (DTW)', 'ED': 'euclidean', 'SED': 'sta
              'MAN': 'Manhattan distance'}
 data_dict = {'DFLoader': 'DFLoader', 'html': 'HTML', 'markdown': 'MarkDown', 'json': 'JSON'}
 number_dict={1:'closest',2:'second',3:'third',4:'fourth',5:'fifth',6:'sixth',7:'seventh',8:'eighth',9:'ninth',10:'tenth'}
+
+def load_config(config_path):
+    """加载 YAML 配置文件"""
+    if not os.path.exists(os.path.join("config", config_path)):
+        print(f"Error: Config file not found at {config_path}")
+        sys.exit(1)
+    
+    with open(os.path.join("config", config_path), 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    return config
 
 class FM_PD(nn.Module):
     def __init__(self, dataset, dist, nei_number, encoding_style, channel_list, itr,llm_name,temperature,top_p,max_tokens,n_sample,frequency,time_use):
@@ -26,22 +40,20 @@ class FM_PD(nn.Module):
         self.ts_encoding = ts_encoding_dict[encoding_style](channel_list,n_sample,frequency,time_use)
         self.nei_number = nei_number
         self.dist = dist
-        # self.llm = api_output(api=api, llm_name=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
-
-        # self.llm = api_output(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
-        # self.llm = api_output_openai(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
-        self.llm = api_output_openai_xiaomi(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
-        
+        if llm_name in 'glm-4.5-flash':
+            self.llm = api_output(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
+        if llm_name in 'mimo-v2-flash':   
+            self.llm = api_output_openai_xiaomi(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
+        else:
+            self.llm = api_output_openai(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
         self.dataset = dataset
         self.encoding_style = encoding_style
         self.itr = itr
         self.doc = data_dict[encoding_style]  
-        # self.llm_name = llm_name.replace('/', '_')
         self.llm_name = llm_name
         self.channel_list = channel_list
         self.base_path = f'result/{self.dataset}/{self.doc}/{self.dist}_dist'
         self.log_dir = os.path.join(self.base_path, 'txt')
-        # 构造一个唯一的文件名前缀，方便对应的 JSON 和 TXT 对应
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.file_prefix = f'FM_{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}_{self.timestamp}'
 
@@ -177,43 +189,65 @@ class FM_PD(nn.Module):
         print(f"Final results saved to: {json_file_path}")
         return answer
 
-if __name__ == "__main__":
-    # Parameters
-    dataset = 'BJTU-gearbox'
-    dist = 'DTW'
-    nei_number = 5
-    encoding_style = 'DFLoader'
-    # channel_list = ['F3', 'F1', 'Fz', 'F2', 'F4', 'FC5', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4', 'FC6', 'C5', 'C3', 'C1', 'Cz', 'C2', 'C4', 'C6', 'CP5', 'CP3', 'CP1', 'CPz', 'CP2', 'CP4', 'CP6', 'O1', 'O2']
-    channel_list = ['CH11','CH12','CH13','CH14','CH15','CH16']
-    # api = 'your_api_key'  # Replace with your actual API key
- 
-    itr = 1
+# if __name__ == "__main__":
+#     # Parameters
+#     dataset = 'BJTU-gearbox'
+#     dist = 'DTW'
+#     nei_number = 5
+#     encoding_style = 'DFLoader'
+#     channel_list = ['CH11','CH12','CH13','CH14','CH15','CH16']
+#     itr = 1
     
-    llm_name = 'mimo-v2-flash'
-    # llm_name = 'glm-4.5-flash'
-    # llm_name = 'deepseek-v3.2'
-    temperature = 0.7
-    top_p = 1.0
-    max_tokens = 4096
+#     llm_name = 'mimo-v2-flash'
+#     # llm_name = 'glm-4.5-flash'
+#     # llm_name = 'deepseek-v3.2'
+    
+#     temperature = 0.7
+#     top_p = 1.0
+#     max_tokens = 4096
+#     # Instantiate and run the model
+#     model = FM_PD(
+#         dataset=dataset,
+#         dist=dist,
+#         nei_number=nei_number,
+#         encoding_style=encoding_style,
+#         channel_list=channel_list,
+#         # api=api,
+#         itr=itr,
+#         llm_name=llm_name,
+#         temperature=temperature,
+#         top_p=top_p,
+#         max_tokens=max_tokens,
+#         n_sample=100,
+#         frequency=64000,
+#         time_use=True
+#     )
+    
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run Fault Diagnosis with LLM")
+    parser.add_argument('--config', type=str, default='config.yaml', help='Path to the YAML configuration file')
+    args = parser.parse_args()
+    print(f"Loading configuration from: {args.config}")
+    cfg = load_config(args.config)
 
-    # Instantiate and run the model
+    # 3. 实例化模型 (从 cfg 字典中读取参数)
+    # 这种写法即使参数很多，逻辑也很清晰
     model = FM_PD(
-        dataset=dataset,
-        dist=dist,
-        nei_number=nei_number,
-        encoding_style=encoding_style,
-        channel_list=channel_list,
-        # api=api,
-        itr=itr,
-        llm_name=llm_name,
-        temperature=temperature,
-        top_p=top_p,
-        max_tokens=max_tokens,
-        n_sample=100,
-        frequency=64000,
-        time_use=True
+        # Data params
+        dataset=cfg['data']['dataset_name'],
+        frequency=cfg['data']['frequency'],
+        n_sample=cfg['data']['n_sample_points'],
+        time_use=cfg['data']['use_time_channel'],
+        channel_list=cfg['data']['selected_channels'],
+        dist=cfg['strategy']['distance_metric'],
+        nei_number=cfg['strategy']['neighbor_count'],
+        encoding_style=cfg['strategy']['encoding_style'],
+        llm_name=cfg['llm']['model_name'],
+        temperature=cfg['llm']['temperature'],
+        top_p=cfg['llm']['top_p'],
+        max_tokens=cfg['llm']['max_tokens'],
+        
+        # Experiment params
+        itr=cfg['experiment']['iteration']
     )
     results = model.forward()
-    # with open('result.json', 'w', encoding='utf-8') as f:
-    #     json.dump(results, f, ensure_ascii=False, indent=4)
-    # print("Results saved to result.json")
