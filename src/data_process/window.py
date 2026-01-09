@@ -27,7 +27,7 @@ class MultiClassDataGenerator:
         num_rows = data.shape[0]
         
         windows = []
-        for i in range(0, num_rows - self.window_size + 1, self.step):
+        for i in range(10000, num_rows - self.window_size + 1, self.step):
             window = data[i : i + self.window_size, :].T
             windows.append(window)
             if len(windows) >= self.total_per_file:
@@ -143,8 +143,8 @@ if __name__ == "__main__":
 
         # 5. 滑动窗口参数
         "window": {
-            "size": 1000,
-            "overlap_rate": 0.75
+            "size": 5000,
+            "overlap_rate": 0.8
         },
 
         # 6. 数据集划分参数

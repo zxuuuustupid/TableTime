@@ -5,4 +5,5 @@ dataset='BJTU-gearbox'
 generate_json(dataset=dataset)
 neighbor_find(dataset=dataset,
                   dist_map = {'DTW': find_nearest_neighbors_DTW},
-                  neighbor_num = 15)
+                  neighbor_num = 15,
+                  skip_labels = None)

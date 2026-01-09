@@ -133,10 +133,10 @@ def analyze_json_results(result_file_path, true_labels_path, llm_name=""):
 # --- 使用示例 ---
 if __name__ == '__main__':
     # 1. 指定你的预测结果文件路径
-    result_json_path = r'path/to/your/result.json'
+    result_json_path = r'F:\Project\TableGPT\TableTime\result\BJTU-gearbox\DFLoader\DTW_dist\FM_15_DFLoader_DTW_1_deepseek-v3.2_20260109_211846.json'
     
     # 2. 指定你的真实标签文件路径
-    true_labels_json_path = r'path/to/your/true_labels.json'
+    true_labels_json_path = r'F:\Project\TableGPT\TableTime\data\index\BJTU-gearbox\test_index.json'
     
     model_name = 'deepseek-v3.2'
     
