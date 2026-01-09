@@ -59,3 +59,81 @@ class api_output(nn.Module):
             except Exception as e:
                 print(f"❌ Exception occurred: {e}")
                 time.sleep(2)
+
+class api_output_openai(nn.Module):
+    def __init__(self, model, temperature, top_p, max_tokens):
+        super().__init__()
+        load_dotenv()
+        self.client = OpenAI(
+            api_key=os.getenv("OPENAI_API_KEY"),
+            base_url="https://api.zhizengzeng.com/v1"
+        )
+        self.model = model
+        self.params = {
+            "temperature": temperature,
+            "top_p": top_p,
+            "max_tokens": max_tokens,
+            "stream": False
+        }
+
+    def forward(self, content):
+        while True:
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": content}],
+                    **self.params
+                )
+                
+                # 直接获取回答内容
+                result = response.choices[0].message.content
+                
+                if result and result.strip():
+                    return result.strip()
+                
+                print("⚠️ Empty response, retrying...")
+                time.sleep(1)
+
+            except Exception as e:
+                print(f"❌ API Error: {e}")
+                time.sleep(2)
+                
+                
+class api_output_openai_xiaomi(nn.Module):
+    def __init__(self, model, temperature, top_p, max_tokens):
+        super().__init__()
+        load_dotenv()
+        self.client = OpenAI(
+            api_key=os.getenv("XIAOMI_API_KEY"),
+            base_url="https://api.xiaomimimo.com/v1"
+        )
+        self.model = model
+        self.params = {
+            "temperature": temperature,
+            "top_p": top_p,
+            "max_tokens": max_tokens,
+            "stream": False
+        }
+
+    def forward(self, content):
+        while True:
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": content}],
+                    **self.params
+                )
+                
+                # 直接获取回答内容
+                result = response.choices[0].message.content
+                
+                if result and result.strip():
+                    return result.strip()
+                
+                print("⚠️ Empty response, retrying...")
+                time.sleep(1)
+
+            except Exception as e:
+                print(f"❌ API Error: {e}")
+                time.sleep(2)
+                

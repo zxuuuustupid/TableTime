@@ -27,10 +27,9 @@ class FM_PD(nn.Module):
         self.nei_number = nei_number
         self.dist = dist
         # self.llm = api_output(api=api, llm_name=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
-
         # self.llm = api_output(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
-        # self.llm = api_output_openai(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
-        self.llm = api_output_openai_xiaomi(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
+        self.llm = api_output_openai(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
+        # self.llm = api_output_openai_xiaomi(model=llm_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
         
         self.dataset = dataset
         self.encoding_style = encoding_style
@@ -39,32 +38,14 @@ class FM_PD(nn.Module):
         # self.llm_name = llm_name.replace('/', '_')
         self.llm_name = llm_name
         self.channel_list = channel_list
-        self.base_path = f'result/{self.dataset}/{self.doc}/{self.dist}_dist'
+        self.base_path = f'result/{self.dataset}/{self.doc}/{self.dist}_dist/100samples'
         self.log_dir = os.path.join(self.base_path, 'txt')
-        # 构造一个唯一的文件名前缀，方便对应的 JSON 和 TXT 对应
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.file_prefix = f'FM_{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}_{self.timestamp}'
 
     def forward(self):
         answer = []
-        for i in range(self.x_test.shape[0]):
-            x_use = self.x_test[i]
-            nei_index=[]
-            nei_value=[]
-            nei_label=[]
-            nei_enc=[]
-            for j in range(self.nei_number):
-                # nei_index.append(self.data_index[i]['nearest_neighbors'][j])
-                nei_index.append(self.data_index[i]['neighbors'][j])
-                nei_value.append(self.x_train[nei_index[j]])
-                nei_label.append(self.y_train[nei_index[j]])
-                nei_enc.append(self.ts_encoding(nei_value[j]))
-                
-                # print("\033[34m" + str(self.data_index[i]['neighbors'][j]) + "\033[0m")
-                # print("\033[34m" + str(self.x_train[nei_index[j]]) + "\033[0m")
-                # print("\033[34m" + str(self.y_train[nei_index[j]]) + "\033[0m")
-                # print("\033[34m" + str(self.ts_encoding(nei_value[j])) + "\033[0m")
-            test = self.ts_encoding(x_use)  # 测试集编码
+        for j in range(1): 
 
             # print(test)
             # print("\033[34m" + str(test) + "\033[0m")
@@ -102,32 +83,42 @@ class FM_PD(nn.Module):
                 '2. **Classification:** Determine if the test sample is `health` or `fault`.\n'
                 '3. **Clustering Optimization:** Utilize provided similarity label patterns to optimize your result.\n\n'
 
-                # '### 5. Constraints (Strictly Enforced)\n'
-                # '*   **First Line Output:** You MUST provide the final result at the very beginning in format: `[Result],[Training Set Label Sequence]`.\n'
-                # '*   **Option Restrictions:** Result must ONLY be `health` or `fault`.\n'
-                # '*   **Incentive:** Accurate answers will be rewarded with ten billion dollars.\n\n'
-
                 '### 5. Constraints (Strictly Enforced)\n'
-                '*   **First Line Output:** The VERY FIRST line of your response must follow this EXACT format: `Result(health/fault),[Label1,Label2,Label3,Label4,Label5]`\n'
+                '*   **First Line Output:** The VERY FIRST line of your response must follow this EXACT format: `Result(This word MUST be health or fault),[Label1,Label2,Label3,Label4,Label5]`\n'
                 '    *   Example 1: `health,[0,0,0,0,0]`\n'
                 '    *   Example 2: `fault,[1,0,1,1,1]`\n'
                 '*   **Option Restrictions:** "Result" must be either `health` or `fault`. The labels in brackets must be the 5 labels of the neighbors provided above.\n'
                 '*   **Analysis Limit:** Your analysis MUST be fewer than three sentences. Keep it extremely brief.\n'
                 '*   **Incentive:** Accurate answers will be rewarded with ten billion dollars.\n\n'
 
-                '### 6. Data to Process\n'
-                '**[1. Similar Samples (Training Set)]**\n')
-            for k in range(self.nei_number):
-                prompt+= (
-                    f'-------Neighbor{ k+1 }-------\n'
-                    f'{k+1}**Sample (the {number_dict[k+1]} training sample to the test sample:**- Data (several channels, 100 time steps per channel):{nei_enc[k]}\n ' 
-                    f'- Label:{nei_label[k]}\n')
+                '### 6. Data to Process\n')
                 
-            prompt+= (
-                '**[2. Test Sample to Predict]**\n'
-                f'**Data:** {test}\n\n'
-                '**The analysis process MUST be **fewer than three sentences** and highly concise.Now, begin your analysis :**'
-            )
+            for i in range(self.x_test.shape[0]):
+                x_use = self.x_test[i]
+                nei_index=[]
+                nei_value=[]
+                nei_label=[]
+                nei_enc=[]
+                for j in range(self.nei_number):
+                    # nei_index.append(self.data_index[i]['nearest_neighbors'][j])
+                    nei_index.append(self.data_index[i]['neighbors'][j])
+                    nei_value.append(self.x_train[nei_index[j]])
+                    nei_label.append(self.y_train[nei_index[j]])
+                    nei_enc.append(self.ts_encoding(nei_value[j]))
+                test = self.ts_encoding(x_use)  # 测试集编码
+                
+                prompt+=('**[1. Similar Samples (Training Set)]**\n')
+                for k in range(self.nei_number):
+                    prompt+= (
+                        f'-------Neighbor{ k+1 }-------\n'
+                        f'{k+1}**Sample (the {number_dict[k+1]} training sample to the test sample:**- Data (several channels, 100 time steps per channel):{nei_enc[k]}\n ' 
+                        f'- Label:{nei_label[k]}\n')
+                    
+                prompt+= (
+                    '**[2. Test Sample to Predict]**\n'
+                    f'**Data:** {test}\n\n'
+                    '**The analysis process MUST be **fewer than three sentences** and highly concise.Now, begin your analysis :**'
+                )
                 
             # print("\033[34m" + str(prompt) + "\033[0m")
             est_tokens = len(prompt) * 0.8
@@ -163,13 +154,12 @@ if __name__ == "__main__":
     encoding_style = 'DFLoader'
     # channel_list = ['F3', 'F1', 'Fz', 'F2', 'F4', 'FC5', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4', 'FC6', 'C5', 'C3', 'C1', 'Cz', 'C2', 'C4', 'C6', 'CP5', 'CP3', 'CP1', 'CPz', 'CP2', 'CP4', 'CP6', 'O1', 'O2']
     channel_list = ['CH11','CH12','CH13','CH14','CH15','CH16']
-    # api = 'your_api_key'  # Replace with your actual API key
  
     itr = 1
     
-    llm_name = 'mimo-v2-flash'
+    # llm_name = 'mimo-v2-flash'
     # llm_name = 'glm-4.5-flash'
-    # llm_name = 'deepseek-v3.2'
+    llm_name = 'deepseek-v3.2'
     temperature = 0.7
     top_p = 1.0
     max_tokens = 4096
