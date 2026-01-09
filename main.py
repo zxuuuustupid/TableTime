@@ -5,7 +5,7 @@ import sys
 import numpy as np
 import yaml
 from calc_acc import analyze_json_results
-import calc_acc
+from calc_acc import *
 from src.ts_encoding import ts2DFLoader, ts2html, ts2markdown, ts2json
 import json
 from src.code_executor import extract_code, execute_generated_code
@@ -101,7 +101,7 @@ class FM_PD(nn.Module):
 
             **Instruction - "Be the Detective":**
             1. **Autonomy on Logic:** I will NOT tell you which features to use (RMS, Kurtosis, FFT, etc.). You decide what reveals the "truth" hidden in the signals.
-            2. **Focus on Similarity:** If a test sample is a "Fault", it should look mathematically similar to "Fault" neighbors. Your goal is to quantify the similarity between a test sample and its neighbors, regardless of their true labels.
+            2. **Focus on Similarity:** If a test sample is a "Fault type3", it should look mathematically similar to "Fault type3" neighbors. But you don't need to focus on label type. Your goal is to find features that can distinguish between multiple health and fault types, not just health vs fault. Your goal is to quantify the similarity between a test sample and its neighbors, regardless of their true labels.
 
             **Coding Steps:**
             1. **Load:** Load `npy` files and `json` map using the provided path variables.
@@ -146,8 +146,15 @@ class FM_PD(nn.Module):
                 '*   **Driving Gear Support Bearings:** HRB32305.\n'
                 '*   **Axle Box Bearings:** HRB352213.\n'
                 '*   **State Definitions:**\n'
-                '    *   `0`: health (healthy state without faults)\n'
-                '    *   `1`: fault (state with faults)\n'
+                '    *   `G0`: gearbox health (healthy state without faults) — Baseline condition with normal gear meshing and bearing operation.\n'
+                '    *   `G1`: gearbox crack tooth — A fatigue crack initiates at the root of a gear tooth, potentially leading to tooth breakage.\n'
+                '    *   `G2`: gearbox worn tooth — Gradual material loss on gear tooth surfaces due to prolonged contact stress and inadequate lubrication.\n'
+                '    *   `G3`: gearbox missing tooth — Complete absence of one gear tooth, causing severe impact loads and periodic shock during rotation.\n'
+                '    *   `G4`: gearbox chipped tooth — Localized fracture or spalling on the gear tooth edge or flank, often from overload or manufacturing defect.\n'
+                '    *   `G5`: gearbox Bearing inner race fault — Defect on the rotating inner ring of the bearing, generating characteristic high-frequency vibrations.\n'
+                '    *   `G6`: gearbox Bearing outer race fault — Damage on the stationary outer ring, producing modulation patterns in vibration spectra.\n'
+                '    *   `G7`: gearbox rolling element fault — Pitting or spall on balls or rollers, resulting in repetitive impacts at ball-pass frequency.\n'
+                '    *   `G8`: gearbox bearing cage fault — Damage or deformation of the retainer (cage), causing irregular spacing and secondary impacts between rolling elements.\n'
                 f'*   **Sampling Parameters:** 24 channels(**CURRENT DATA INCLUDE {len(self.channel_list)}**) covering vibration, current, speed, and sound. Sampling frequency: **64kHz**.\n\n'
 
                 '### 2. Sampling Channel Locations and Physical Significance\n'
@@ -206,7 +213,7 @@ class FM_PD(nn.Module):
             
         with open(feature_desc_path, 'r', encoding='utf-8') as f:
             # 将 JSON 读入内存，并转成一个字典方便快速查找
-            # 假设 JSON 格式是 [{"test_index": 0, "description": "..."}, ...]
+            # 假设 JSON 格式是 [{"test_index": G0, "description": "..."}, ...]
             descriptions_list = json.load(f)
             descriptions_map = {item['test_index']: item['description'] for item in descriptions_list}
         
@@ -241,11 +248,16 @@ class FM_PD(nn.Module):
             The labels of the 5 most similar samples found in the training set are: {nei_label}
 
             ### 3. Constraints (Strictly Enforced)
-            *   **First Line Output:** The VERY FIRST line of your response must follow this EXACT format: `health/fault,[Label1,Label2,Label3,Label4,Label5](Labels MUST be 0 or 1)`, STRICTLY follow the examples' FORMAT below:
-                *   Example 1: `health,[0,0,0,0,0]`
-                *   Example 2: `fault,[1,0,1,1,1]`
-            *   **Option Restrictions:** The first word you output MUST be "health" or "fault". The labels in brackets must be the 5 neighbor labels provided above, which are **{nei_label}.
-            *   **Analysis Limit:** Your analysis MUST be fewer than three sentences. Keep it extremely brief."""
+            1.  **Output Format:** Your response MUST start with the classification result and the neighbor labels.
+            2.  **Strict Formatting for Line 1:** The first line MUST be in the format `result,[label1,label2,...,label{self.nei_number}]`.
+                - `result` MUST be one of `G0, G1, ..., G8`.
+                - The list MUST contain the {self.nei_number} neighbor labels provided above.
+                - **DO NOT** add any other words or explanations on this line.
+            3.  **Examples for Line 1:**
+                - `G0,[G0,G1,G0,G3,G0]`
+                - `G3,[G3,G2,G3,G4,G3]`
+            4.  **Analysis Limit:** Your analysis (after the first line) MUST be fewer than three sentences.
+            """
             )
             
             
@@ -340,7 +352,7 @@ class FM_PD(nn.Module):
             json.dump(answer, f, ensure_ascii=False, indent=4)
         print(f"[INFO] Final results saved to: {json_file_path}")
         print("[INFO] Evaluating results...")
-        analyze_json_results(json_file_path, self.llm_name)
+        analyze_json_results(json_file_path, os.path.join('data','index', self.dataset, 'test_index.json'), self.llm_name)
         
         return answer
     
@@ -353,13 +365,13 @@ if __name__ == "__main__":
 
     model = FM_PD(
         dataset=cfg['data']['dataset_name'],
-        frequency=cfg['data']['frequency'],
-        n_sample=cfg['data']['n_sample_points'],
-        time_use=cfg['data']['use_time_channel'],
+        # frequency=cfg['data']['frequency'],
+        # n_sample=cfg['data']['n_sample_points'],
+        # time_use=cfg['data']['use_time_channel'],
         channel_list=cfg['data']['selected_channels'],
         dist=cfg['strategy']['distance_metric'],
         nei_number=cfg['strategy']['neighbor_count'],
-        encoding_style=cfg['strategy']['encoding_style'],
+        # encoding_style=cfg['strategy']['encoding_style'],
         llm_name=cfg['llm']['model_name'],
         temperature=cfg['llm']['temperature'],
         top_p=cfg['llm']['top_p'],

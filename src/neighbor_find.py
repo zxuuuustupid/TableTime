@@ -61,10 +61,11 @@ def find_nearest_neighbors_MAN(train_data,test_data,num_neighbors):
 #         with open(f'data_index/{dataset}/{i}_dist/nearest_{j}_neighbors.json', 'w') as f:
 #             json.dump(result,f,indent=4)
 
-def neighbor_find(dataset,
-                  dist_map = {'DTW': find_nearest_neighbors_DTW, 'ED': find_nearest_neighbors_ED,
-                              'SED': find_nearest_neighbors_standard_ED, 'MAN': find_nearest_neighbors_MAN},
-                  neighbor_num = 10):
+def neighbor_find(dataset,neighbor_num,
+                  dist_map = {'DTW': find_nearest_neighbors_DTW}
+                #   dist_map = {'DTW': find_nearest_neighbors_DTW, 'ED': find_nearest_neighbors_ED,
+                #               'SED': find_nearest_neighbors_standard_ED, 'MAN': find_nearest_neighbors_MAN},
+                   ):
     train_data = np.load(f'data/{dataset}/X_train.npy', mmap_mode='c')
     test_data = np.load(f'data/{dataset}/X_valid.npy', mmap_mode='c')
     
@@ -73,7 +74,7 @@ def neighbor_find(dataset,
 
     for name, func in dist_map.items():
         os.makedirs(f'data_index/{dataset}/{name}_dist', exist_ok=True)
-        for j in range(1, neighbor_num + 1):
+        for j in range(neighbor_num, neighbor_num + 1):
             result = func(train_data, test_data, num_neighbors=j)
             with open(f'data_index/{dataset}/{name}_dist/nearest_{j}_neighbors.json', 'w') as f:
                 json.dump(result, f, indent=4)

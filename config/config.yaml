@@ -8,8 +8,8 @@ experiment:
 data:
   dataset_name: "BJTU-gearbox"  # dataset
   frequency: 64000
-  n_sample_points: 100         # n_sample (每个样本的时间步长)
-  use_time_channel: true       # time_use
+  # n_sample_points: 100         # n_sample (每个样本的时间步长)
+  # use_time_channel: true       # time_use
   selected_channels:           # channel_list
     - "CH11"
     - "CH12"
@@ -21,8 +21,8 @@ data:
 # --- 检索与编码策略 ---
 strategy:
   distance_metric: "DTW"       # dist
-  neighbor_count: 5            # nei_number
-  encoding_style: "DFLoader"   # encoding_style
+  neighbor_count: 15            # nei_number
+  # encoding_style: "DFLoader"   # encoding_style
 
 # --- 大模型参数 ---
 llm:
