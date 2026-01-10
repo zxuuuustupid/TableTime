@@ -30,7 +30,7 @@ def print_token_report(text_content, model_limit=128000):
 
 ts_encoding_dict = {'DFLoader': ts2DFLoader, 'html': ts2html, 'markdown': ts2markdown, 'json': ts2json}
 dist_name = {'DTW': 'Dynamic Time Warping (DTW)', 'ED': 'euclidean', 'SED': 'standard euclidean',
-             'MAN': 'Manhattan distance'}
+             'MAN': 'Manhattan distance','HDF': 'Hybrid Distance Function (HDF)', 'FIW':'Feature Importance Weighted Distance (FIW)'}
 data_dict = {'DFLoader': 'DFLoader', 'html': 'HTML', 'markdown': 'MarkDown', 'json': 'JSON'}
 number_dict={1:'closest',2:'second',3:'third',4:'fourth',5:'fifth',6:'sixth',7:'seventh',8:'eighth',9:'ninth',10:'tenth'}
 

@@ -20,7 +20,7 @@ data:
 
 # --- 检索与编码策略 ---
 strategy:
-  distance_metric: "DTW"       # dist
+  distance_metric: "FIW"       # dist
   neighbor_count: 15            # nei_number
   encoding_style: "DFLoader"   # encoding_style
 

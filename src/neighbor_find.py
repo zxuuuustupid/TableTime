@@ -3,6 +3,9 @@ import numpy as np
 import json
 from dtaidistance import dtw_ndim
 from tqdm import tqdm
+from scipy.spatial.distance import cdist
+from scipy.stats import skew, kurtosis
+from scipy.fft import fft, fftfreq
 
 def standardize(X):
     means = np.mean(X, axis=1, keepdims=True)
@@ -62,6 +65,116 @@ def find_nearest_neighbors_MAN(train_data,test_data,num_neighbors):
         result.append({"test_index": test_index, "neighbors": nearest_indices.tolist()})
     return result
 
+def calculate_feature_vector(sample_data, fs=64000):
+    """
+    为单个样本 (Channels x TimePoints) 计算一个扁平化的特征向量。
+    """
+    num_channels, num_points = sample_data.shape
+    all_channel_features = []
+
+    for i in range(num_channels):
+        signal = sample_data[i]
+        
+        # 时域特征
+        rms = np.sqrt(np.mean(signal**2))
+        peak = np.max(np.abs(signal))
+        crest_factor = peak / rms if rms > 0 else 0
+        kur = kurtosis(signal, fisher=False)
+        skw = skew(signal)
+        
+        # 频域特征
+        fft_vals = np.abs(fft(signal))[:num_points//2]
+        freqs = fftfreq(num_points, 1/fs)[:num_points//2]
+        dominant_freq = freqs[np.argmax(fft_vals)] if len(fft_vals) > 0 else 0
+        spectral_centroid = np.sum(freqs * fft_vals) / np.sum(fft_vals) if np.sum(fft_vals) > 0 else 0
+
+        channel_features = [rms, peak, crest_factor, kur, skw, dominant_freq, spectral_centroid]
+        all_channel_features.extend(channel_features)
+        
+    return np.array(all_channel_features)
+
+from scipy.spatial.distance import cdist
+from sklearn.ensemble import RandomForestClassifier
+
+# --- 复用之前的辅助函数 ---
+# 1. standardize(X)
+# 2. calculate_feature_vector(sample_data)
+
+def find_nearest_neighbors_weighted_feature(train_data, test_data, num_neighbors):
+    """
+    使用无监督的加权欧氏距离 (标准化欧氏距离) 来寻找最近邻。
+    该方法会自动根据特征的方差来分配权重，无需标签。
+    """
+    
+    # --- 步骤 1: 离线特征提取 ---
+    # 注意：这里不再需要手动标准化，cdist 会自动处理
+    print("Pre-calculating feature vectors for all training data...")
+    train_features = np.array([calculate_feature_vector(train_seq) for train_seq in tqdm(train_data, desc="Featuring Train")])
+
+    results = []
+    print("\nFinding nearest neighbors using Unsupervised Weighted distance...")
+    for test_index, test_seq in tqdm(enumerate(test_data), desc="Weighted Search"):
+        
+        # --- 步骤 2: 在线计算 ---
+        test_feature = calculate_feature_vector(test_seq)
+        
+        # --- 步骤 3: 高效计算加权距离 (核心改进) ---
+        # 使用 cdist 的 'seuclidean' metric。
+        # 它会自动计算 train_features 中每个特征的方差，并用它来标准化距离。
+        # test_feature.reshape(1, -1) 是为了把它变成二维数组，满足 cdist 的输入要求
+        # V=None 意味着 cdist 会自己去算方差
+        distances = cdist(test_feature.reshape(1, -1), train_features, metric='seuclidean', V=None)[0]
+        
+        # --- 步骤 4: 排序 ---
+        nearest_indices = np.argsort(distances)[:num_neighbors]
+        
+        results.append({"test_index": test_index, "neighbors": nearest_indices.tolist()})
+
+    return results
+
+# def find_nearest_neighbors_hybrid(train_data, test_data, num_neighbors, dtw_weight=0.2, feature_weight=0.8):
+#     """
+#     使用 DTW 距离和特征向量距离的加权和来寻找最近邻。
+#     """
+    
+#     # --- 1. 离线特征提取与标准化 ---
+#     print("Pre-calculating feature vectors for all training data...")
+#     train_features = np.array([calculate_feature_vector(train_seq) for train_seq in tqdm(train_data, desc="Featuring Train")])
+#     train_mean = np.mean(train_features, axis=0)
+#     train_std = np.std(train_features, axis=0)
+#     train_std[train_std == 0] = 1
+#     train_features_std = (train_features - train_mean) / train_std
+
+#     results = []
+#     print("\nFinding nearest neighbors using Hybrid distance...")
+#     for test_index, test_seq in tqdm(enumerate(test_data), desc="Hybrid Search"):
+        
+#         # --- 2. 计算两种距离 ---
+#         # a. 标准化的 DTW 距离
+#         test_seq_std = standardize(test_seq)
+#         dtw_distances = np.array([dtw_ndim.distance(test_seq_std, standardize(train_seq)) for train_seq in train_data])
+
+#         # b. 标准化的特征向量距离
+#         test_feature = calculate_feature_vector(test_seq)
+#         test_feature_std = (test_feature - train_mean) / train_std
+#         feature_distances = cdist(test_feature_std.reshape(1, -1), train_features_std, metric='euclidean')[0]
+        
+#         # --- 3. 归一化与加权 ---
+#         # Min-Max Normalization to [0, 1]
+#         dtw_norm = (dtw_distances - np.min(dtw_distances)) / (np.max(dtw_distances) - np.min(dtw_distances)) if np.ptp(dtw_distances) > 0 else np.zeros_like(dtw_distances)
+#         feat_norm = (feature_distances - np.min(feature_distances)) / (np.max(feature_distances) - np.min(feature_distances)) if np.ptp(feature_distances) > 0 else np.zeros_like(feature_distances)
+
+#         # c. 计算总距离
+#         total_distances = (dtw_weight * dtw_norm) + (feature_weight * feat_norm)
+        
+#         # --- 4. 排序 ---
+#         nearest_indices = np.argsort(total_distances)[:num_neighbors]
+        
+#         results.append({"test_index": test_index, "neighbors": nearest_indices.tolist()})
+
+#     return results
+
+
 # dataset='RacketSports'
 # dataset = 'FingerMovements'
 # train_data=np.load(f'data/{dataset}/X_train.npy', mmap_mode='c')
@@ -77,8 +190,10 @@ def find_nearest_neighbors_MAN(train_data,test_data,num_neighbors):
 #             json.dump(result,f,indent=4)
 
 def neighbor_find(dataset, neighbor_num,
-                  dist_map={'DTW': find_nearest_neighbors_DTW},
-                  skip_labels=None): # <--- [修改1] 参数变成 skip_labels (列表)
+                  dist_map={'DTW': find_nearest_neighbors_DTW, 
+                            'FIW': find_nearest_neighbors_weighted_feature},
+                  skip_labels=None,
+): 
     """
     查找最近邻，并支持跳过一个或多个特定标签的数据。
     
