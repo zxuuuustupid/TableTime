@@ -1,140 +1,60 @@
-<div align="center">
-  <!-- <h1><b>  </b></h1> -->
-  <!-- <h2><b>  </b></h2> -->
-  <h2><b> TableTime: Reformulating Time Series Classification as Training-Free Table Understanding with Large Language Models (CIKM'2025)</b></h2>
-</div>
+# TableTime: An Agentic Framework for Time Series Classification via LLM-driven Code Generation
 
-<div align="center">
-
-![](https://img.shields.io/github/last-commit/realwangjiahao/TableTime?color=green)
-![](https://img.shields.io/github/stars/realwangjiahao/TableTime?color=yellow)
-![](https://img.shields.io/github/forks/realwangjiahao/TableTime?color=lightblue)
-![](https://img.shields.io/badge/PRs-Welcome-green)
-
-</div>
-
-<div align="center">
-
-
-**[<a href="https://arxiv.org/abs/2411.15737">Paper Page</a>]**
-**[<a href="https://www.themoonlight.io/en/review/tabletime-reformulating-time-series-classification-as-training-free-table-understanding-with-large-language-models">MoonLight</a>]**
-
-
-**[<a href="https://mp.weixin.qq.com/s/7TTO8osQED9yqQ70s9Ruxw">时序人中文解读</a>]**
-**[<a href="https://mp.weixin.qq.com/s/CnFpm-fuplmDEcKmC_pMGA">AI科研技术派中文解读</a>]**
-
-
-</div>
+This project introduces **TableTime**, a novel, training-free framework that reframes Multivariate Time Series (MTS) classification. We reformulate the task as a two-stage reasoning process executed by a Large Language Model (LLM) acting as an autonomous agent. Instead of inefficiently feeding raw numerical data into the LLM's context window, our approach leverages the model's advanced code generation and logical inference capabilities to achieve high-performance, interpretable, and token-efficient classification.
 
 ---
-> 👏 The paper is accpeted by CIKM 2025!
->
-> 🙋 Please let us know if you find out a mistake or have any suggestions!
-> 
-> 🌟 If you find this resource helpful, please consider to star this repository and cite our research:
 
-```bibtex
-@article{wang2024tabletime,
-  title={Tabletime: Reformulating time series classification as zero-shot table understanding via large language models},
-  author={Wang, Jiahao and Cheng, Mingyue and Mao, Qingyang and Liu, Qi and Xu, Feiyang and Li, Xin and Chen, Enhong},
-  journal={arXiv e-prints},
-  pages={arXiv--2411},
-  year={2024}
-}
-```
 ## Motivation
 
-In today’s data-driven world, multivariate time series (MTS) are essential in areas like healthcare, industrial monitoring, and behavior recognition. Traditional time series classification (TSC) methods struggle to capture temporal dependencies and multi-channel patterns, while deep learning models, despite their strong performance, are often complex and opaque.
+Directly applying Large Language Models to time series classification presents significant challenges: the high dimensionality of numerical data leads to prohibitive token consumption, and the LLM's reasoning abilities are underutilized when processing raw signals. Traditional methods, in turn, struggle to model complex inter-channel dependencies and require extensive domain expertise.
 
-Large language models (LLMs) offer powerful reasoning and cross-domain generalization, but applying them directly to TSC is hindered by data–text mismatches, high costs, and underutilized reasoning ability. To address these issues, we propose **TableTime**, a framework that reformulates MTS classification as a table comprehension task, enabling LLMs to better exploit their reasoning power and offering a new paradigm for time series analysis.
+TableTime addresses these limitations by treating the LLM not as a data processor, but as a **Data Scientist Agent**. This agent autonomously analyzes the data by writing and executing code, mirroring the workflow of a human expert.
 
-![](pic/background.png)<center></center>
+---
 
-## Method
+## Methodology
 
-### Contextual Information Modeling
-Whether using traditional classification or deep learning, it's difficult to accurately model both temporal and channel information. In LLM-based methods, aligning the numerical modality with the LLM's textual modality is a crucial consideration.
+Our framework operates through a two-stage, **Coder-Analyst** workflow. This division of labor allows each LLM instance to focus on a task it excels at: one for code-based analysis, and the other for evidence-based reasoning.
 
-To model the temporal dependencies in time series as losslessly as possible while preserving channel information and aligning the time series with the LLM's semantic space, the team used a table to model the time series, with the horizontal axis representing time information and the vertical axis representing channel information.
+### Phase 1: Autonomous Feature Engineering (The "Coder" Agent)
 
-### Reasoning Enhancement Based on Neighbor Retrieval
-To help LLM better handle unseen samples, the team proposed a **Neighbor-Assisted Contextual Reasoning** mechanism. This mechanism retrieves neighboring samples from the training data, providing important contextual guidance to the model.
+The first phase is designed to transform low-level, high-volume signal data into high-level, low-volume descriptive evidence.
 
-Retrieval methods can include DTW distance, Euclidean distance, Manhattan distance, and others. By retrieving neighbors, LLM can obtain the neighbors and labels of test samples in the training set, thereby enhancing LLM's reasoning capabilities.
+1.  **Contextual Understanding**: We provide the Coder agent with crucial metadata, including:
+    *   **Data Pointers**: File paths to the test data, training data, and a pre-computed nearest neighbor map.
+    *   **Structural Schema**: The shape and format of the data arrays (`(N, Channels, Time)`).
+    *   **Domain Knowledge**: A rich description of the physical system, including the meaning of each sensor channel (e.g., "CH11-13: Gearbox Input Shaft Vibration").
 
-### Multi-Path Reasoning Mechanism
-The LLM's responses are highly random. To mitigate this, the team proposed **Multi-Path Ensemble Enhanced Reasoning**. This utilizes multiple different reasoning paths to generate diverse results, improving the model's robustness and accuracy.
+2.  **Autonomous Code Generation**: Armed with this context, the Coder agent autonomously determines the most effective analysis strategy. It writes a self-contained Python script to:
+    *   **Select Features**: Based on the domain knowledge (e.g., inferring that "Gearbox" data requires Kurtosis for shock detection), it selects appropriate time-domain and frequency-domain features.
+    *   **Perform Comparative Analysis**: The script iterates through each test sample, calculates its feature vector, retrieves its neighbors' data, calculates their feature vectors, and quantifies the mathematical similarities and differences.
+    *   **Synthesize a Narrative**: The script's final output is not raw numbers, but a **"Descriptive Narrative"**. This text-based summary for each sample synthesizes numerical evidence, comparison trends, and physical meaning into an objective, human-readable report (e.g., *"Test sample exhibits a Kurtosis of 15.2... a pattern often associated with bearing defects."*).
 
-### Prompt Design
-To guide the LLM in performing step-by-step analysis, the team implemented a **Complex Problem Decomposition Mechanism**. This breaks down a complex problem into several smaller ones, guiding the LLM in step-by-step classification, resulting in more accurate analysis.
+3.  **Local Execution**: This generated script is executed locally, with the resulting narratives saved to a JSON file. This critical step ensures that the massive raw data never leaves the local environment and is not consumed as tokens.
 
-## Further Reading
-1, [**Can Slow-thinking LLMs Reason Over Time? Empirical Studies in Time Series Forecasting**](https://arxiv.org/abs/2505.24511)
+### Phase 2: Contextual Diagnosis (The "Analyst" Agent)
 
-**Authors**: Cheng, Mingyue and Wang, Jiahao and Wang, Daoyu and Tao, Xiaoyu and Liu, Qi
+The second phase uses the high-quality, condensed information from Phase 1 to make the final classification.
+
+1.  **Evidence-Based Reasoning**: The descriptive narrative for each test sample is fed, one by one, to a second LLM instance—the Analyst.
+
+2.  **Neighbor-Assisted Inference**: Alongside the narrative, the Analyst is also provided with the ground-truth labels of the corresponding neighbor samples. This provides strong contextual clues.
+
+3.  **Final Classification**: The Analyst's task is to perform the final diagnosis based on the rich, pre-digested evidence. For example, if the narrative states "strong signal consistency" and the neighbors are all labeled "Health", the classification is straightforward. If the narrative highlights "significant deviation" and the neighbors are mixed, the Analyst must weigh the evidence to make a judgment.
+
+This two-stage process transforms a complex numerical problem into a simple, evidence-based reasoning task, which is precisely what LLMs are designed to solve.
+
+---
+
+## Citation
+
+If you find this work helpful for your research, please consider citing our paper:
 
 ```bibtex
-@article{wang2025can,
-  title={Can slow-thinking llms reason over time? empirical studies in time series forecasting},
-  author={Wang, Jiahao and Cheng, Mingyue and Liu, Qi},
-  journal={arXiv preprint arXiv:2505.24511},
+@article{Duan2025TableTime,
+  title={TableTime: An Agentic Framework for Time Series Classification via LLM-driven Code Generation},
+  author={Zhixu Duan, Zuoyi Chen, et al.},
+  journal={Pattern Recognition},
   year={2025}
 }
 ```
-
-2, [**FormerTime: Hierarchical Multi-Scale Representations for Multivariate Time Series Classification**](https://arxiv.org/pdf/2302.09818).
-
-**Authors**: Cheng, Mingyue and Liu, Qi and Liu, Zhiding and Li, Zhi and Luo, Yucong and Chen, Enhong
-
-```bibtex
-@inproceedings{cheng2023formertime,
-  title={Formertime: Hierarchical multi-scale representations for multivariate time series classification},
-  author={Cheng, Mingyue and Liu, Qi and Liu, Zhiding and Li, Zhi and Luo, Yucong and Chen, Enhong},
-  booktitle={Proceedings of the ACM Web Conference 2023},
-  pages={1437--1445},
-  year={2023}
-}
-```
-
-3, [**InstructTime: Advancing Time Series Classification with Multimodal Language Modeling**](https://arxiv.org/pdf/2403.12371).
-
-**Authors**: Cheng, Mingyue and Chen, Yiheng and Liu, Qi and Liu, Zhiding and Luo, Yucong
-
-```bibtex
-@article{cheng2024advancing,
-  title={Advancing Time Series Classification with Multimodal Language Modeling},
-  author={Cheng, Mingyue and Chen, Yiheng and Liu, Qi and Liu, Zhiding and Luo, Yucong},
-  journal={arXiv preprint arXiv:2403.12371},
-  year={2024}
-}
-```
-
-4, [**TimeMAE: Self-supervised Representation of Time Series with Decoupled Masked Autoencoders**](https://arxiv.org/pdf/2303.00320).
-
-**Authors**: Cheng, Mingyue and Liu, Qi and Liu, Zhiding and Zhang, Hao and Zhang, Rujiao and Chen, Enhong
-
-```bibtex
-@article{cheng2023timemae,
-  title={Timemae: Self-supervised representations of time series with decoupled masked autoencoders},
-  author={Cheng, Mingyue and Liu, Qi and Liu, Zhiding and Zhang, Hao and Zhang, Rujiao and Chen, Enhong},
-  journal={arXiv preprint arXiv:2303.00320},
-  year={2023}
-}
-```
-
-5, [**CrossTimeNet: Learning Transferable Time Series Classifier with Cross-Domain Pre-training from Language Model**](https://arxiv.org/pdf/2403.12372).
-
-**Authors**: Cheng, Mingyue and Tao, Xiaoyu and Liu, Qi and Zhang, Hao and Chen, Yiheng and Lei, Chenyi
-
-```bibtex
-@article{cheng2024learning,
-  title={Learning Transferable Time Series Classifier with Cross-Domain Pre-training from Language Model},
-  author={Cheng, Mingyue and Tao, Xiaoyu and Liu, Qi and Zhang, Hao and Chen, Yiheng and Lei, Chenyi},
-  journal={arXiv preprint arXiv:2403.12372},
-  year={2024}
-}
-```
-
-
-
-
