@@ -35,7 +35,7 @@ def load_true_labels_from_json(true_labels_path):
         print(f"[ERROR] Invalid format in true labels file {true_labels_path}. Expected list of dicts with 'index' and 'label'. Error: {e}")
         return None
 
-def analyze_json_results(result_file_path, true_labels_path, llm_name=""):
+def analyze_json_results(result_file_path, true_labels_path, llm_name="", save_path=None):
     """
     分析多分类结果，与从 JSON 文件加载的真实标签进行比较。
 
@@ -86,22 +86,27 @@ def analyze_json_results(result_file_path, true_labels_path, llm_name=""):
              print(f"[WARNING] test_index {idx} from result file not found in true labels file. Skipping.")
 
 
-    # --- 4. 计算并打印评估报告 ---
-    print("\n" + "="*60)
-    print(f"[EVALUATION REPORT] for {os.path.basename(result_file_path)}")
+# --- 4. 计算并打印评估报告 (修改后支持保存) ---
+    
+    # 准备一个列表用于收集所有的输出行
+    output_lines = []
+
+    output_lines.append("\n" + "="*60)
+    output_lines.append(f"[EVALUATION REPORT] for {os.path.basename(result_file_path)}")
     if llm_name:
-        print(f"   Model: {llm_name}")
-    print("="*60)
+        output_lines.append(f"   Model: {llm_name}")
+    output_lines.append("="*60)
 
     total_samples = len(true_labels_map)
     evaluated_samples = len(y_true)
     
-    print(f"Total Samples in Ground Truth: {total_samples}")
-    print(f"Evaluated Samples (Format-Valid & Matched): {evaluated_samples}")
-    print(f"Format-Invalid Predictions: {format_invalid_count}")
+    output_lines.append(f"Total Samples in Ground Truth: {total_samples}")
+    output_lines.append(f"Evaluated Samples (Format-Valid & Matched): {evaluated_samples}")
+    output_lines.append(f"Format-Invalid Predictions: {format_invalid_count}")
     
     if not y_true:
-        print("\n[ERROR] No valid predictions to evaluate. Cannot calculate metrics.")
+        msg = "\n[ERROR] No valid predictions to evaluate. Cannot calculate metrics."
+        print(msg) # 错误信息直接打印
         return
 
     labels = sorted(list(set(y_true) | set(y_pred)))
@@ -111,23 +116,38 @@ def analyze_json_results(result_file_path, true_labels_path, llm_name=""):
     macro_f1 = f1_score(y_true, y_pred, average='macro', labels=labels, zero_division=0)
     weighted_f1 = f1_score(y_true, y_pred, average='weighted', labels=labels, zero_division=0)
 
-    print("\n--- Overall Metrics ---")
-    print(f"Accuracy: {accuracy:.4f}")
-    print(f"Macro F1-Score: {macro_f1:.4f} (Treats each class equally)")
-    print(f"Weighted F1-Score: {weighted_f1:.4f} (Accounts for class imbalance)")
+    output_lines.append("\n--- Overall Metrics ---")
+    output_lines.append(f"Accuracy: {accuracy:.4f}")
+    output_lines.append(f"Macro F1-Score: {macro_f1:.4f} (Treats each class equally)")
+    output_lines.append(f"Weighted F1-Score: {weighted_f1:.4f} (Accounts for class imbalance)")
 
     # --- 分类报告 ---
-    print("\n--- Classification Report ---")
+    output_lines.append("\n--- Classification Report ---")
     report = classification_report(y_true, y_pred, labels=labels, target_names=labels, zero_division=0)
-    print(report)
+    output_lines.append(report)
 
     # --- 混淆矩阵 ---
-    print("\n--- Confusion Matrix ---")
+    output_lines.append("\n--- Confusion Matrix ---")
     cm = confusion_matrix(y_true, y_pred, labels=labels)
     cm_df = pd.DataFrame(cm, index=labels, columns=labels)
-    print("Rows: True Labels, Columns: Predicted Labels")
-    print(cm_df)
-    print("="*60 + "\n")
+    output_lines.append("Rows: True Labels, Columns: Predicted Labels")
+    output_lines.append(cm_df.to_string()) # 使用 to_string() 确保格式整齐
+    output_lines.append("="*60 + "\n")
+
+    # --- 统一输出与保存 ---
+    final_report = "\n".join(output_lines)
+    
+    # 1. 打印到控制台
+    print(final_report)
+    
+    # 2. 保存到文件
+    if save_path:
+        try:
+            with open(save_path, 'w', encoding='utf-8') as f:
+                f.write(final_report)
+            print(f"[INFO] Evaluation report saved to: {save_path}")
+        except Exception as e:
+            print(f"[ERROR] Failed to save report: {e}")
 
 
 # --- 使用示例 ---

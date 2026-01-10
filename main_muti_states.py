@@ -422,10 +422,7 @@ class FM_PD(nn.Module):
             #     f'**Data:** {test}\n\n'
             #     '**The analysis process MUST be **fewer than three sentences** and highly concise.Now, begin your analysis :**'
             # )
-                
-                
 
-                
 
             # 调用分析函数
             print_token_report(prompt, model_limit=128000)
@@ -467,7 +464,7 @@ class FM_PD(nn.Module):
             json.dump(true_labels_list, f)
             
         # 调用评估
-        analyze_json_results(final_result_path, true_labels_json_path, self.llm_name)
+        analyze_json_results(final_result_path, true_labels_json_path, self.llm_name, save_path=os.path.join(save_dir, f'result_report{self.timestamp}.txt'))
         
         return final_answers
     
