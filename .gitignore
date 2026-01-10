@@ -31,3 +31,4 @@ src/AKSClab/SKSClab/util/normalize_data.m
 *.xlsx
 *.fig
 
+src/cluster/result/*

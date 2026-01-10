@@ -32,7 +32,7 @@ ts_encoding_dict = {'DFLoader': ts2DFLoader, 'html': ts2html, 'markdown': ts2mar
 dist_name = {'DTW': 'Dynamic Time Warping (DTW)', 'ED': 'euclidean', 'SED': 'standard euclidean',
              'MAN': 'Manhattan distance','HDF': 'Hybrid Distance Function (HDF)', 'FIW':'Feature Importance Weighted Distance (FIW)'}
 data_dict = {'DFLoader': 'DFLoader', 'html': 'HTML', 'markdown': 'MarkDown', 'json': 'JSON'}
-number_dict={1:'closest',2:'second',3:'third',4:'fourth',5:'fifth',6:'sixth',7:'seventh',8:'eighth',9:'ninth',10:'tenth'}
+number_dict={1:'closest',2:'second',3:'third',4:'fourth',5:'fifth',6:'sixth',7:'seventh',8:'eighth',9:'ninth',10:'tenth',11:'eleventh',12:'twelfth',13:'thirteenth',14:'fourteenth',15:'fifteenth'}
 
 def load_config(config_path):
     """加载 YAML 配置文件"""
@@ -259,7 +259,8 @@ class FM_PD(nn.Module):
             {description_text}
 
             ### 2. Neighbor Labels (For Reference)
-            The labels of the 5 most similar samples found in the training set are: {nei_label}
+            The labels of the 15 most similar samples found in the training set are: {nei_label}, you should use these neighbor labels to assist or DECIDE your decision-making.
+            *Note: G0 represents Health. G1-G8 represent different fault types (Crack, Worn, Missing, Chipped, Inner Race, Outer Race, Rolling Element, Cage).*
 
             ### 3. Constraints (Strictly Enforced)
             1.  **Output Format:** Your response MUST start with the classification result and the neighbor labels.
@@ -268,9 +269,10 @@ class FM_PD(nn.Module):
                 - The list MUST contain the {self.nei_number} neighbor labels provided above.
                 - **DO NOT** add any other words or explanations on this line.
             3.  **Examples for Line 1:**
-                - `G0,[G0,G1,G0,G3,G0]`
-                - `G3,[G3,G2,G3,G4,G3]`
+                - `G0,[G0,G1,G0,G3,...,G0]`
+                - `G3,[G3,G2,G3,G4,...,G3]`
             4.  **Analysis Limit:** Your analysis (after the first line) MUST be fewer than three sentences.
+            5.  **Neighbor Labels:** Pay more attention to the neighbor labels results as provided above for your analysis and results.
             """
             )
             

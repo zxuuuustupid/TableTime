@@ -66,6 +66,7 @@ class MultiClassDataGenerator:
                         
                         # 取匹配到的第一个文件
                         csv_path = os.path.join(dir_path, matched_files[0])
+                        print(f"\n处理文件: {csv_path}")
                         # ----------------------------------------------
                         
                         all_x = self._extract_sequential_segments(csv_path)
@@ -112,9 +113,9 @@ if __name__ == "__main__":
     # 基础配置，删掉或忽略速度和负载的硬编码
     CONFIG = {
         "base_path": "F:/Project/TripletLoss/BJTU-RAO Bogie Datasets/Data/BJTU_RAO_Bogie_Datasets/",
-        "fault_types": [f"M0_G{i}_LA0_RA0" for i in range(9)], # 快速生成G0-G8
-        "window": {"size": 5000, "overlap_rate": 0.8},
-        "split": {"train_per_class": 60, "valid_per_class": 20},
+        "fault_types": [f"M0_G{i}_LA0_RA0" for i in [0,1,2,3]], # 快速生成G0-G8
+        "window": {"size": 2048, "overlap_rate": 0.0},
+        "split": {"train_per_class": 60, "valid_per_class": 60},
     }
 
     # 循环处理每个 Sample，并对应到 WC 目录

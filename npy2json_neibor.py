@@ -87,7 +87,7 @@ def calculate_retrieval_accuracy(retrieval_results_path, test_labels_path, train
     # 4. 计算并打印总体结果
     if not all_purities:
         print("[ERROR] 没有可供评估的有效检索结果。")
-        return
+        return 0.0
     
     mean_accuracy = np.mean(all_purities) * 100
     
@@ -99,25 +99,147 @@ def calculate_retrieval_accuracy(retrieval_results_path, test_labels_path, train
     print(f"[INFO] 平均检索精度 (Mean Purity @ k): {mean_accuracy:.2f}%")
     print("="*50)
     print(f"[INFO] (该指标衡量的是：对于一个测试样本，其找到的邻居有多大概率与它自己是同一类别)")
+    
+    return mean_accuracy
 
 
 # weight_DTW=0.1
 # weight_feature=0.9
-def pipeline():
+# def pipeline():
+#     generate_json(dataset=dataset)
+#     neighbor_find(dataset=dataset,
+#                     train_work_condition_num=train_work_condition_num,
+#                     test_work_condition_num=test_work_condition_num,
+#                     dist_map = dist_map,
+#                     neighbor_num = neighbor_num,
+#                     skip_labels = None,)
+#     calculate_retrieval_accuracy(retrieval_results_path=os.path.join("data_index", dataset, f"test_WC{test_work_condition_num}_train_WC{train_work_condition_num}",f"{list(dist_map.keys())[0]}_dist", f'nearest_{neighbor_num}_neighbors.json'),test_labels_path=os.path.join("data", "index",dataset,f"WC{test_work_condition_num}","test_index.json"), train_labels_path=os.path.join("data", "index", dataset,f"WC{train_work_condition_num}", "train_index.json"))
+
+def pipeline(dataset, train_nums, test_num, dist_map, neighbor_num):
+    # 1. 生成基础索引 (如果需要)
     generate_json(dataset=dataset)
-    neighbor_find(dataset=dataset,
-                    train_work_condition_num=train_work_condition_num,
-                    test_work_condition_num=test_work_condition_num,
-                    dist_map = dist_map,
-                    neighbor_num = neighbor_num,
-                    skip_labels = None,)
-    calculate_retrieval_accuracy(retrieval_results_path=os.path.join("data_index", dataset, f"test_WC{test_work_condition_num}_train_WC{train_work_condition_num}",f"{list(dist_map.keys())[0]}_dist", f'nearest_{neighbor_num}_neighbors.json'),test_labels_path=os.path.join("data", "index",dataset,f"WC{test_work_condition_num}","test_index.json"), train_labels_path=os.path.join("data", "index", dataset,f"WC{train_work_condition_num}", "train_index.json"))
     
-if __name__ == "__main__":
+    # 2. 寻找近邻 (注意这里传的是列表 train_nums)
+    neighbor_find(dataset=dataset,
+                  train_work_condition_nums=train_nums,
+                  test_work_condition_num=test_num,
+                  dist_map=dist_map,
+                  neighbor_num=neighbor_num)
+    
+    # 3. 构造路径标识 (例如 [1,2,3] -> "1_2_3")
+    train_tag = "_".join(map(str, train_nums))
+    results_path = os.path.join("data_index", dataset, f"test_WC{test_num}_train_WCs{train_tag}", 
+                                f"{list(dist_map.keys())[0]}_dist", f'nearest_{neighbor_num}_neighbors.json')
+    
+    # 4. 合并训练集标签 (核心改动：因为合并后的训练集索引是连续的，需要手动合并字典)
+    merged_train_labels = {}
+    current_offset = 0
+    for wc in train_nums:
+        path = os.path.join("data", "index", dataset, f"WC{wc}", "train_index.json")
+        with open(path, 'r') as f:
+            labels = json.load(f)
+            for item in labels:
+                # 将该工况的标签存入合并字典，键为全局偏移后的索引
+                merged_train_labels[current_offset] = item['label']
+                current_offset += 1
+    
+    # 5. 加载测试集标签
+    test_labels_path = os.path.join("data", "index", dataset, f"WC{test_num}", "test_index.json")
+    
+    # 6. 计算准确率 (这里需要稍微修改 calculate_retrieval_accuracy 使其支持直接传字典，或者如下快捷处理)
+    # 为了最小化改动，我们临时写一个合并后的json
+    temp_train_labels_path = "temp_merged_train_labels.json"
+    with open(temp_train_labels_path, 'w') as f:
+        json.dump([{"index": k, "label": v} for k, v in merged_train_labels.items()], f)
         
-    dataset='BJTU-gearbox'
-    dist_map = {'FIW': find_nearest_neighbors_weighted_feature}
+    acc=calculate_retrieval_accuracy(retrieval_results_path=results_path,
+                                 test_labels_path=test_labels_path,
+                                 train_labels_path=temp_train_labels_path)
+
+    return acc
+    
+# if __name__ == "__main__":
+        
+#     dataset='BJTU-gearbox'
+#     dist_map = {'FIW': find_nearest_neighbors_weighted_feature}
+#     neighbor_num = 15
+#     train_work_condition_num=1
+#     test_work_condition_num=2
+#     pipeline()
+
+if __name__ == "__main__":
+    import datetime # 确保导入 datetime
+    
+    dataset = 'BJTU-gearbox'
+    dist_map_name = 'FIW'
+    dist_map = {dist_map_name: find_nearest_neighbors_weighted_feature}
     neighbor_num = 15
-    train_work_condition_num=1
-    test_work_condition_num=2
-    pipeline()
+    all_wcs = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    
+    # 定义训练场景
+    all_train_scenarios = [
+        [1, 2],
+        [1, 2, 3],
+        [1, 2, 3, 4, 5],
+        [1, 2, 3, 4, 5, 6, 7]
+    ]
+    
+    # 用于收集所有实验结果的列表
+    experiment_logs = []
+    
+    # --- 开始大循环 ---
+    for train_nums in all_train_scenarios:
+        test_wcs = [wc for wc in all_wcs if wc not in train_nums]
+        
+        print(f"\n{'='*60}")
+        print(f"🚀 大实验启动：训练集组合 = {train_nums}")
+        print(f"{'='*60}")
+        
+        scenario_accuracies = []
+        
+        for test_wc in test_wcs:
+            print(f"\n>>> [当前配置] 训练: {train_nums} | 测试: WC{test_wc}")
+            # 获取准确率
+            acc = pipeline(dataset, train_nums, test_wc, dist_map, neighbor_num)
+            
+            # 记录单次结果
+            log_str = f"Train: {train_nums} | Test: WC{test_wc} | Accuracy: {acc:.2f}%"
+            experiment_logs.append(log_str)
+            scenario_accuracies.append(acc)
+        
+        # 记录该场景的平均准确率
+        avg_acc = np.mean(scenario_accuracies) if scenario_accuracies else 0
+        experiment_logs.append(f"--- Scenario Average (Train {train_nums}): {avg_acc:.2f}% ---\n")
+
+    # --- 实验结束，保存汇总结果 ---
+    
+    # 1. 生成文件名
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_dir = "result/log"
+    os.makedirs(log_dir, exist_ok=True)
+    filename = f"{dataset}_{dist_map_name}_{timestamp}.txt"
+    filepath = os.path.join(log_dir, filename)
+    
+    # 2. 构建完整报告内容
+    final_report = []
+    final_report.append("="*60)
+    final_report.append(f"实验汇总报告")
+    final_report.append(f"时间: {timestamp}")
+    final_report.append(f"数据集: {dataset}")
+    final_report.append(f"距离度量: {dist_map_name}")
+    final_report.append(f"邻居数: {neighbor_num}")
+    final_report.append("="*60 + "\n")
+    final_report.extend(experiment_logs)
+    
+    final_report_str = "\n".join(final_report)
+    
+    # 3. 打印并保存
+    print("\n" + "#"*60)
+    print("实验全部完成！汇总结果如下：")
+    print("#"*60)
+    print(final_report_str)
+    
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(final_report_str)
+        
+    print(f"\n[INFO] 汇总日志已保存至: {filepath}")
