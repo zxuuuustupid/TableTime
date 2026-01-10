@@ -1,6 +1,3 @@
- $env:https_proxy="http://127.0.0.1:7897"
- $env:GOOGLE_CLOUD_PROJECT="dzx020304"
-
 <div align="center">
   <!-- <h1><b>  </b></h1> -->
   <!-- <h2><b>  </b></h2> -->

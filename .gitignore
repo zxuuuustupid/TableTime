@@ -25,3 +25,9 @@ results/
 prompts/zh-bjtu.md
 *.txt
 result/BJTU-gearbox/DFLoader/DTW_dist/code/*.py
+src/AKSClab/SKSClab/util/normalize_data.m
+*.m
+*.csv
+*.xlsx
+*.fig
+
