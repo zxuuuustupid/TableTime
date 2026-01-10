@@ -101,17 +101,23 @@ def calculate_retrieval_accuracy(retrieval_results_path, test_labels_path, train
     print(f"[INFO] (该指标衡量的是：对于一个测试样本，其找到的邻居有多大概率与它自己是同一类别)")
 
 
-
-
-dataset='BJTU-gearbox'
-dist_map = {'FIW': find_nearest_neighbors_weighted_feature}
-neighbor_num = 15
 # weight_DTW=0.1
 # weight_feature=0.9
-
-generate_json(dataset=dataset)
-neighbor_find(dataset=dataset,
-                  dist_map = dist_map,
-                  neighbor_num = neighbor_num,
-                  skip_labels = None,)
-calculate_retrieval_accuracy(os.path.join("data_index", dataset, f"{list(dist_map.keys())[0]}_dist", f'nearest_{neighbor_num}_neighbors.json'),         os.path.join("data", "index",dataset,"test_index.json"), os.path.join("data", "index", dataset, "train_index.json"))
+def pipeline():
+    generate_json(dataset=dataset)
+    neighbor_find(dataset=dataset,
+                    train_work_condition_num=train_work_condition_num,
+                    test_work_condition_num=test_work_condition_num,
+                    dist_map = dist_map,
+                    neighbor_num = neighbor_num,
+                    skip_labels = None,)
+    calculate_retrieval_accuracy(retrieval_results_path=os.path.join("data_index", dataset, f"test_WC{test_work_condition_num}_train_WC{train_work_condition_num}",f"{list(dist_map.keys())[0]}_dist", f'nearest_{neighbor_num}_neighbors.json'),test_labels_path=os.path.join("data", "index",dataset,f"WC{test_work_condition_num}","test_index.json"), train_labels_path=os.path.join("data", "index", dataset,f"WC{train_work_condition_num}", "train_index.json"))
+    
+if __name__ == "__main__":
+        
+    dataset='BJTU-gearbox'
+    dist_map = {'FIW': find_nearest_neighbors_weighted_feature}
+    neighbor_num = 15
+    train_work_condition_num=1
+    test_work_condition_num=2
+    pipeline()

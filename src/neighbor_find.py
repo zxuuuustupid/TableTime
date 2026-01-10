@@ -6,6 +6,13 @@ from tqdm import tqdm
 from scipy.spatial.distance import cdist
 from scipy.stats import skew, kurtosis
 from scipy.fft import fft, fftfreq
+import numpy as np
+import os
+from tqdm import tqdm
+from scipy.spatial.distance import cdist
+from scipy.stats import skew, kurtosis
+from scipy.fft import fft
+from sklearn.decomposition import PCA
 
 def standardize(X):
     means = np.mean(X, axis=1, keepdims=True)
@@ -93,6 +100,42 @@ def calculate_feature_vector(sample_data, fs=64000):
         
     return np.array(all_channel_features)
 
+def calculate_robust_feature_vector(sample_data, fs=64000):
+    """
+    改进版特征提取：专注于无量纲指标，减少受转速影响的能量指标。
+    """
+    num_channels, num_points = sample_data.shape
+    all_channel_features = []
+
+    for i in range(num_channels):
+        signal = sample_data[i]
+        
+        # 1. 基础统计量
+        rms = np.sqrt(np.mean(signal**2)) + 1e-9
+        peak = np.max(np.abs(signal))
+        abs_mean = np.mean(np.abs(signal)) + 1e-9
+        
+        # 2. 无量纲指标 (这些指标对转速不敏感，只对信号形状敏感)
+        kur = kurtosis(signal, fisher=False)  # 峭度：反映冲击性
+        skw = skew(signal)                     # 偏度：反映分布对称性
+        crest = peak / rms                     # 峰值因子
+        shape = rms / abs_mean                 # 波形因子
+        impulse = peak / abs_mean              # 脉冲因子
+        
+        # 3. 频域归一化特征
+        fft_vals = np.abs(fft(signal))[:num_points//2]
+        # 使用能量归一化频谱，关注频谱形状而非绝对强度
+        norm_fft = fft_vals / (np.sum(fft_vals) + 1e-9)
+        
+        # 提取频域前3个主峰的相对能量分布（代替绝对频率位置）
+        top_peaks = np.sort(norm_fft)[-3:]
+        
+        channel_features = [kur, skw, crest, shape, impulse] 
+        channel_features.extend(top_peaks.tolist())
+        all_channel_features.extend(channel_features)
+        
+    return np.array(all_channel_features)
+
 from scipy.spatial.distance import cdist
 from sklearn.ensemble import RandomForestClassifier
 
@@ -102,33 +145,52 @@ from sklearn.ensemble import RandomForestClassifier
 
 def find_nearest_neighbors_weighted_feature(train_data, test_data, num_neighbors):
     """
-    使用无监督的加权欧氏距离 (标准化欧氏距离) 来寻找最近邻。
-    该方法会自动根据特征的方差来分配权重，无需标签。
+    集成子空间对齐（Subspace Alignment）的改进检索算法。
+    专为跨工况（不同转速/负载）设计。
     """
     
-    # --- 步骤 1: 离线特征提取 ---
-    # 注意：这里不再需要手动标准化，cdist 会自动处理
-    print("Pre-calculating feature vectors for all training data...")
-    train_features = np.array([calculate_feature_vector(train_seq) for train_seq in tqdm(train_data, desc="Featuring Train")])
+    # --- 步骤 1: 批量特征提取 ---
+    print("Extracting robust features...")
+    train_features = np.array([calculate_robust_feature_vector(s) for s in tqdm(train_data, desc="Train Feat")])
+    test_features = np.array([calculate_robust_feature_vector(s) for s in tqdm(test_data, desc="Test Feat")])
+
+    # --- 步骤 2: 子空间对齐 (Subspace Alignment) ---
+    # 核心逻辑：将测试集的特征空间对齐到训练集，消除工况差异
+    print("Performing Subspace Alignment to align working conditions...")
+    
+    # 自动选择保留的主成分数量（取特征维度的一半或固定值）
+    n_components = min(train_features.shape[1] // 2, 20)
+    
+    pca_train = PCA(n_components=n_components).fit(train_features)
+    pca_test = PCA(n_components=n_components).fit(test_features)
+    
+    # 获取特征空间基向量
+    L_train = pca_train.components_.T
+    L_test = pca_test.components_.T
+    
+    # 对齐矩阵 M = L_test' * L_train
+    # 此矩阵可以将测试集特征转换到训练集的分布空间
+    M = np.dot(L_test.T, L_train)
+    
+    # 转换后的特征
+    # 我们将两个集合都映射到训练集的子空间中进行比较
+    train_projected = np.dot(train_features, L_train)
+    test_aligned = np.dot(np.dot(test_features, L_test), M)
+
+    # --- 步骤 3: 距离计算 ---
+    # 在对齐后的空间使用标准化欧氏距离
+    print("Calculating distances in aligned subspace...")
+    # 注意：cdist 的 'seuclidean' 需要在投影空间计算
+    distances_matrix = cdist(test_aligned, train_projected, metric='seuclidean')
 
     results = []
-    print("\nFinding nearest neighbors using Unsupervised Weighted distance...")
-    for test_index, test_seq in tqdm(enumerate(test_data), desc="Weighted Search"):
-        
-        # --- 步骤 2: 在线计算 ---
-        test_feature = calculate_feature_vector(test_seq)
-        
-        # --- 步骤 3: 高效计算加权距离 (核心改进) ---
-        # 使用 cdist 的 'seuclidean' metric。
-        # 它会自动计算 train_features 中每个特征的方差，并用它来标准化距离。
-        # test_feature.reshape(1, -1) 是为了把它变成二维数组，满足 cdist 的输入要求
-        # V=None 意味着 cdist 会自己去算方差
-        distances = cdist(test_feature.reshape(1, -1), train_features, metric='seuclidean', V=None)[0]
-        
-        # --- 步骤 4: 排序 ---
+    for test_index in range(len(test_data)):
+        distances = distances_matrix[test_index]
         nearest_indices = np.argsort(distances)[:num_neighbors]
-        
-        results.append({"test_index": test_index, "neighbors": nearest_indices.tolist()})
+        results.append({
+            "test_index": test_index, 
+            "neighbors": nearest_indices.tolist()
+        })
 
     return results
 
@@ -189,7 +251,10 @@ def find_nearest_neighbors_weighted_feature(train_data, test_data, num_neighbors
 #         with open(f'data_index/{dataset}/{i}_dist/nearest_{j}_neighbors.json', 'w') as f:
 #             json.dump(result,f,indent=4)
 
-def neighbor_find(dataset, neighbor_num,
+def neighbor_find(dataset, 
+                  train_work_condition_num,
+                  test_work_condition_num,
+                  neighbor_num,
                   dist_map={'DTW': find_nearest_neighbors_DTW, 
                             'FIW': find_nearest_neighbors_weighted_feature},
                   skip_labels=None,
@@ -203,11 +268,11 @@ def neighbor_find(dataset, neighbor_num,
     
     # --- 加载所有数据，包括标签 ---
     print(f"Loading data for dataset: {dataset}")
-    full_train_data = np.load(f'data/{dataset}/X_train.npy', mmap_mode='c')
-    full_train_labels = np.load(f'data/{dataset}/y_train.npy', mmap_mode='c')
+    full_train_data = np.load(f'data/{dataset}/WC{train_work_condition_num}/X_train.npy', mmap_mode='c')
+    full_train_labels = np.load(f'data/{dataset}/WC{train_work_condition_num}/y_train.npy', mmap_mode='c')
     
-    full_test_data = np.load(f'data/{dataset}/X_valid.npy', mmap_mode='c')
-    full_test_labels = np.load(f'data/{dataset}/y_valid.npy', mmap_mode='c')
+    full_test_data = np.load(f'data/{dataset}/WC{test_work_condition_num}/X_valid.npy', mmap_mode='c')
+    full_test_labels = np.load(f'data/{dataset}/WC{test_work_condition_num}/y_valid.npy', mmap_mode='c')
     
     print(f"Original train size: {len(full_train_data)}")
     print(f"Original test size: {len(full_test_data)}")
@@ -236,7 +301,7 @@ def neighbor_find(dataset, neighbor_num,
 
     # --- 后续逻辑不变 ---
     for name, func in dist_map.items():
-        output_dir = f'data_index/{dataset}/{name}_dist'
+        output_dir = f'data_index/{dataset}/test_WC{test_work_condition_num}_train_WC{train_work_condition_num}/{name}_dist'
         os.makedirs(output_dir, exist_ok=True)
         print(f"\nCalculating neighbors using {name}...")
         
