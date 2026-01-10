@@ -32,3 +32,4 @@ src/AKSClab/SKSClab/util/normalize_data.m
 *.fig
 
 src/cluster/result/*
+result/BJTU-gearbox/DFLoader/FIW_dist/*
