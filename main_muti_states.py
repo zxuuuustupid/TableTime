@@ -52,18 +52,20 @@ class FM_PD(nn.Module):
                  temperature,
                  top_p,
                  max_tokens,
+                #  train_nums,
+                #  test_num,
                 #  n_sample,
                 #  frequency,
                 #  time_use
                  ):
         super(FM_PD, self).__init__()
-        self.x_train = np.load(f'data/{dataset}/X_train.npy', mmap_mode='c')
-        self.y_train = np.load(f'data/{dataset}/y_train.npy', mmap_mode='c')
-        self.x_test = np.load(f'data/{dataset}/X_valid.npy', mmap_mode='c')
-        self.y_test = np.load(f'data/{dataset}/y_valid.npy', mmap_mode='c')
-        with open(f'./data_index/{dataset}/{dist}_dist/nearest_{nei_number}_neighbors.json',
-                  'r') as f:
-            self.data_index = json.load(f)
+        # self.x_train = np.load(f'data/{dataset}/X_train.npy', mmap_mode='c')
+        # self.y_train = np.load(f'data/{dataset}/y_train.npy', mmap_mode='c')
+        # self.x_test = np.load(f'data/{dataset}/X_valid.npy', mmap_mode='c')
+        # self.y_test = np.load(f'data/{dataset}/y_valid.npy', mmap_mode='c')
+        # with open(f'./data_index/{dataset}/{dist}_dist/nearest_{nei_number}_neighbors.json',
+        #           'r') as f:
+        #     self.data_index = json.load(f)
         # self.ts_encoding = ts_encoding_dict[encoding_style](channel_list,n_sample,frequency,time_use)
         self.nei_number = nei_number
         self.dist = dist
@@ -80,23 +82,92 @@ class FM_PD(nn.Module):
         self.itr = itr
         self.doc = data_dict[encoding_style]  
         self.llm_name = llm_name
-        self.channel_list = channel_list
-        # self.data_path = f'data/{dataset}/X_valid.npy'
-        self.data_path = os.path.abspath(f'{os.path.dirname(__file__)}/data/{dataset}/X_valid.npy')
-        self.base_path = f'result/{self.dataset}/{self.doc}/{self.dist}_dist'
-        self.log_dir = os.path.join(self.base_path, 'txt')
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.file_prefix = f'FM_{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}_{self.timestamp}'
+        self.channel_list = channel_list
+        # # self.data_path = f'data/{dataset}/X_valid.npy'
+        # self.data_path = os.path.abspath(f'{os.path.dirname(__file__)}/data/{dataset}/X_valid.npy')
+        # self.base_path = f'result/{self.dataset}/{self.doc}/{self.dist}_dist'
+        # self.log_dir = os.path.join(self.base_path, 'txt')
+        # self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # self.file_prefix = f'FM_{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}_{self.timestamp}'
+        self.base_result_path = f'result/{self.dataset}/{data_dict[encoding_style]}/{self.dist}_dist'
+        # self.train_nums = train_nums
+        # self.test_num = test_num
 
-    def forward(self):
-        answer = []
+    def forward(self,train_nums=None,test_num=None):
+        """
+        train_nums: list, e.g. [1, 2]
+        test_num: int, e.g. 3
+        """
+         # 1. 构造当前实验的唯一标识符
+        train_tag = "_".join(map(str, train_nums))
+        exp_id = f"test_WC{test_num}_train_WCs{train_tag}"
+        
+        print(f"\n[INFO] === Starting Workflow: {exp_id} ===")
+        
+        # test_data_path = os.path.abspath(f'data/{self.dataset}/X_valid.npy')
+        # train_data_path = os.path.abspath(f'data/{self.dataset}/X_train.npy')
+        # nei_map_path = os.path.abspath(f'./data_index/{self.dataset}/{self.dist}_dist/nearest_{self.nei_number}_neighbors.json')
+        # os.makedirs(os.path.join(self.base_path, 'description'), exist_ok=True)
+        # feature_desc_path = os.path.abspath(os.path.join(self.base_path, 'description', f'{self.file_prefix}_descriptions.json'))
+        
+         # ------------------------------------------------------------------
+        # 步骤 1: 动态加载数据 & 准备 AI 读取的临时文件
+        # ------------------------------------------------------------------
+        
+        # A. 加载并合并训练数据 (用于 AI 代码读取)
+        # 路径: data/BJTU-gearbox/WC1/X_train.npy
+        train_x_list = []
+        for wc in train_nums:
+            path = f'data/{self.dataset}/WC{wc}/X_train.npy'
+            train_x_list.append(np.load(path, mmap_mode='c'))
+        
+        # 合并所有训练数据
+        current_train_data = np.concatenate(train_x_list, axis=0)
+        
+        # B. 加载测试数据
+        test_data_path_source = f'data/{self.dataset}/WC{test_num}/X_valid.npy'
+        current_test_data = np.load(test_data_path_source, mmap_mode='c')
+        
+        # 加载测试集标签 (用于最后评估)
+        test_label_path_source = f'data/{self.dataset}/WC{test_num}/y_valid.npy'
+        current_test_labels = np.load(test_label_path_source, mmap_mode='c')
+
+        # C. 确定邻居索引文件路径 (这是 neighbor_find 生成的路径)
+        # 路径示例: data_index/BJTU-gearbox/test_WC3_train_WCs1_2/FIW_dist/nearest_15_neighbors.json
+        nei_map_path = os.path.abspath(f'./data_index/{self.dataset}/test_WC{test_num}_train_WCs{train_tag}/{self.dist}_dist/nearest_{self.nei_number}_neighbors.json')
+        
+        if not os.path.exists(nei_map_path):
+            print(f"[ERROR] Neighbor file not found: {nei_map_path}")
+            return [{"error": "Neighbor file missing"}]
+        
+        # D. 保存临时文件供 AI 代码读取 (至关重要！AI 无法直接读取内存变量)
+        # 我们在 result 下创建一个 temp 文件夹
+        temp_dir = os.path.join(self.base_result_path, 'temp_data', exp_id)
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        temp_test_path = os.path.join(temp_dir, 'temp_test.npy')
+        temp_train_path = os.path.join(temp_dir, 'temp_train.npy')
+        
+        np.save(temp_test_path, current_test_data)
+        np.save(temp_train_path, current_train_data) # AI 读取这个合并后的训练集
+        
+        # E. 确定结果保存路径 (隔离不同实验的结果)
+        save_dir = os.path.join(self.base_result_path, exp_id)
+        os.makedirs(save_dir, exist_ok=True)
+        
+        os.makedirs(os.path.join(save_dir, 'description'), exist_ok=True)
+        feature_desc_path = os.path.join(save_dir, 'description', f'{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}_{self.timestamp}_descriptions.json')
+        final_result_path = os.path.join(save_dir, f'{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}_{self.timestamp}_llm_output.json')
+        code_save_path = os.path.join(save_dir, 'code', f'{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}_{self.timestamp}_generated_code.py')
+        os.makedirs(os.path.join(save_dir, "txt"), exist_ok=True)
+        log_dir = os.path.join(save_dir,"txt")
+
+        # 加载 data_index 供后续循环使用
+        with open(nei_map_path, 'r') as f:
+            self.data_index = json.load(f)
         
         
-        test_data_path = os.path.abspath(f'data/{self.dataset}/X_valid.npy')
-        train_data_path = os.path.abspath(f'data/{self.dataset}/X_train.npy')
-        nei_map_path = os.path.abspath(f'./data_index/{self.dataset}/{self.dist}_dist/nearest_{self.nei_number}_neighbors.json')
-        os.makedirs(os.path.join(self.base_path, 'description'), exist_ok=True)
-        feature_desc_path = os.path.abspath(os.path.join(self.base_path, 'description', f'{self.file_prefix}_descriptions.json'))
         prompt_coder = (
             """
             **Role:**
@@ -189,26 +260,25 @@ class FM_PD(nn.Module):
         response_coder = self.llm(content=prompt_coder)
         
         code = extract_code(response_coder)
-        
-        code_path = os.path.join(self.base_path,'code',self.file_prefix+'_code.py')
-        os.makedirs(os.path.dirname(code_path), exist_ok=True)
-        with open(code_path, 'w', encoding='utf-8') as f:
-            f.write(code)
-        print(f"[INFO] Code saved to: {code_path}")
-                
         if not code:
-            print("[ERROR] Failed to extract code from LLM response.")
-            return [{"error": "Code generation failed."}]
+            print("[ERROR] No code generated.")
+            # return []
+        
+        # code_path = os.path.join(self.base_path,'code',self.file_prefix+'_code.py')
+        os.makedirs(os.path.dirname(code_save_path), exist_ok=True)
+        with open(code_save_path, 'w', encoding='utf-8') as f:
+            f.write(code)
+        print(f"[INFO] Code saved to: {code_save_path}")
         
         # 3. 执行 AI 写的代码
         # 这段代码会读取数据，并把描述性文字保存到 feature_desc_path
         print("[INFO] Phase 2: Executing generated code locally...")
         execution_output = execute_generated_code(
             code, 
-            test_data_path, 
-            train_data_path, 
-            nei_map_path, 
-            feature_desc_path
+            os.path.abspath(temp_test_path) , 
+            os.path.abspath(temp_train_path) , 
+            os.path.abspath(nei_map_path) , 
+            os.path.abspath(feature_desc_path)
         )
         print(f"[INFO] --- Code Execution Log ---\n{execution_output}\n")
 
@@ -233,22 +303,42 @@ class FM_PD(nn.Module):
         
         print(f"[INFO] Phase 3: Found {len(descriptions_map)} descriptions. Starting one-by-one diagnosis...")
         
-        for i in range(self.x_test.shape[0]):
+        # for i in range(self.x_test.shape[0]):
             
-            description_text = descriptions_map.get(i)
-            # x_use = self.x_test[i]
-            nei_index=[]
-            # nei_value=[]
-            nei_label=[]
-            # nei_enc=[]
-            for j in range(self.nei_number):
-                # nei_index.append(self.data_index[i]['nearest_neighbors'][j])
-                nei_index.append(self.data_index[i]['neighbors'][j])
-                # nei_value.append(self.x_train[nei_index[j]])
-                nei_label.append(self.y_train[nei_index[j]])
-                # nei_enc.append(self.ts_encoding(nei_value[j]))
+        #     description_text = descriptions_map.get(i)
+        #     # x_use = self.x_test[i]
+        #     nei_index=[]
+        #     # nei_value=[]
+        #     nei_label=[]
+        #     # nei_enc=[]
+        #     for j in range(self.nei_number):
+        #         # nei_index.append(self.data_index[i]['nearest_neighbors'][j])
+        #         nei_index.append(self.data_index[i]['neighbors'][j])
+        #         # nei_value.append(self.x_train[nei_index[j]])
+        #         nei_label.append(self.y_train[nei_index[j]])
+        #         # nei_enc.append(self.ts_encoding(nei_value[j]))
                 
-            # test = self.ts_encoding(x_use)  # 测试集编码
+        #     # test = self.ts_encoding(x_use)  # 测试集编码
+        
+        with open(feature_desc_path, 'r', encoding='utf-8') as f:
+            descriptions = json.load(f)
+            # 转字典方便查找
+            desc_map = {item['test_index']: item['description'] for item in descriptions}
+
+        final_answers = []
+        
+        # 为了获取邻居标签，我们需要重新映射一下索引
+        # 因为 current_train_data 是拼接的，我们需要知道每个邻居的全局索引对应的 label
+        # 简单的做法：同样把 label 拼起来
+        train_y_list = [np.load(f'data/{self.dataset}/WC{wc}/y_train.npy', mmap_mode='c') for wc in train_nums]
+        current_train_labels = np.concatenate(train_y_list, axis=0)
+
+        for i in range(current_test_data.shape[0]):
+            description = desc_map.get(i, "No description.")
+            
+            # 获取邻居标签 (使用合并后的标签数组)
+            nei_indices = self.data_index[i]['neighbors']
+            nei_labels = [current_train_labels[idx] for idx in nei_indices]
             
             prompt = ( f"""
             **Role:** You are an expert in high-speed train drivetrain system fault diagnosis.
@@ -256,10 +346,10 @@ class FM_PD(nn.Module):
             **Goal:** Based on a pre-processed analysis summary and neighbor labels, perform the final classification of a test sample.
 
             ### 1. Analysis Summary (Provided by a Data Scientist)
-            {description_text}
+            {description}
 
             ### 2. Neighbor Labels (For Reference)
-            The labels of the 15 most similar samples found in the training set are: {nei_label}, you should use these neighbor labels to assist or DECIDE your decision-making.
+            The labels of the 15 most similar samples found in the training set are: {nei_labels}, you should use these neighbor labels to assist or DECIDE your decision-making.
             *Note: G0 represents Health. G1-G8 represent different fault types (Crack, Worn, Missing, Chipped, Inner Race, Outer Race, Rolling Element, Cage).*
 
             ### 3. Constraints (Strictly Enforced)
@@ -349,10 +439,11 @@ class FM_PD(nn.Module):
             output = self.llm(content=prompt)
             
             print(f"[INFO] Test index {i}:")
+            print(f"[LOG] True Label: {current_test_labels[i]}")
             print("[LOG] " + output)
             
             # output = self.llama(role='user', content=prompt)
-            log_dir = self.log_dir
+            # log_dir = self.log_dir
             if not os.path.exists(log_dir):
                 os.makedirs(log_dir)
             with open(
@@ -361,39 +452,64 @@ class FM_PD(nn.Module):
                 file.write(f'{i}\n')
                 file.write(output)
                 file.write('\n')
-            answer.append({'test_index': i, 'answer': output})
+            final_answers.append({'test_index': i, 'answer': output})
         
-        json_file_path = os.path.join(self.base_path, f'{self.file_prefix}.json')
+        # json_file_path = os.path.join(self.base_path, f'{self.file_prefix}.json')
+        json_file_path = final_result_path
         with open(json_file_path, 'w', encoding='utf-8') as f:
-            json.dump(answer, f, ensure_ascii=False, indent=4)
+            json.dump(final_answers, f, ensure_ascii=False, indent=4)
         print(f"[INFO] Final results saved to: {json_file_path}")
-        print("[INFO] Evaluating results...")
-        analyze_json_results(json_file_path, os.path.join('data','index', self.dataset, 'test_index.json'), self.llm_name)
         
-        return answer
+        # 生成临时的真实标签文件供 calc_acc 使用
+        true_labels_json_path = os.path.join(save_dir, 'true_labels.json')
+        true_labels_list = [{"index": idx, "label": label} for idx, label in enumerate(current_test_labels)]
+        with open(true_labels_json_path, 'w') as f:
+            json.dump(true_labels_list, f)
+            
+        # 调用评估
+        analyze_json_results(final_result_path, true_labels_json_path, self.llm_name)
+        
+        return final_answers
     
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run Fault Diagnosis with LLM")
-    parser.add_argument('--config', type=str, default='config.yaml', help='Path to the YAML configuration file')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, default='config.yaml')
     args = parser.parse_args()
-    print(f"[INFO] Loading configuration from: {args.config}")
     cfg = load_config(args.config)
 
+    # 1. 初始化模型 (不传数据，只传配置)
     model = FM_PD(
         dataset=cfg['data']['dataset_name'],
-        # frequency=cfg['data']['frequency'],
-        # n_sample=cfg['data']['n_sample_points'],
-        # time_use=cfg['data']['use_time_channel'],
-        channel_list=cfg['data']['selected_channels'],
         dist=cfg['strategy']['distance_metric'],
         nei_number=cfg['strategy']['neighbor_count'],
         encoding_style=cfg['strategy']['encoding_style'],
+        channel_list=cfg['data']['selected_channels'], # 传进去备用
+        itr=cfg['experiment']['iteration'],
         llm_name=cfg['llm']['model_name'],
         temperature=cfg['llm']['temperature'],
         top_p=cfg['llm']['top_p'],
-        max_tokens=cfg['llm']['max_tokens'],
-        itr=cfg['experiment']['iteration']
+        max_tokens=cfg['llm']['max_tokens']
     )
-    results = model.forward()
+
+    # 2. 定义实验计划
+    all_wcs = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    # 示例：只测一个场景验证代码
+    train_scenarios = [
+        [1, 2, 3], # 用 WC1, WC2, WC3 训练
+        [1, 2, 3,4,5], # 用 WC4, WC5, WC6 训练
+        [1,2,3,4,5,6,7]  # 用 WC7, WC8, WC9 训练
+    ]
+
+    for train_nums in train_scenarios:
+        test_wcs = [x for x in all_wcs if x not in train_nums]
+        
+        for test_wc in test_wcs:
+            try:
+                # 调用 forward，传入具体的工况号
+                model.forward(train_nums=train_nums, test_num=test_wc)
+            except Exception as e:
+                print(f"[ERROR] Experiment Train{train_nums}_Test{test_wc} failed: {e}")
+                import traceback
+                traceback.print_exc()
     
     

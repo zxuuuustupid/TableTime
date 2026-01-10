@@ -1,7 +1,7 @@
 import numpy as np
 import pprint
 
-path = "data/BJTU-gearbox/y_train.npy"
+path = "data\\BJTU-gearbox\\WC9\\y_valid.npy"
 # path = "data/FingerMovements/X_valid.npy"
 data = np.load(path, allow_pickle=True)
 
