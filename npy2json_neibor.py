@@ -170,7 +170,9 @@ def pipeline(dataset, train_nums, test_num, dist_map, neighbor_num):
 if __name__ == "__main__":
     import datetime # 确保导入 datetime
     
-    dataset = 'BJTU-gearbox'
+    # dataset = 'BJTU-gearbox'
+    # dataset = 'BJTU-motor'
+    dataset = 'BJTU-leftaxlebox'
     dist_map_name = 'FIW'
     dist_map = {dist_map_name: find_nearest_neighbors_weighted_feature}
     neighbor_num = 15
