@@ -123,7 +123,7 @@ def analyze_json_results(result_file_path, true_labels_path, llm_name="", save_p
 
     # --- 分类报告 ---
     output_lines.append("\n--- Classification Report ---")
-    report = classification_report(y_true, y_pred, labels=labels, target_names=labels, zero_division=0)
+    report = classification_report(y_true, y_pred, labels=labels, target_names=labels, zero_division=0,digits=4)
     output_lines.append(report)
 
     # --- 混淆矩阵 ---

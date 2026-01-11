@@ -26,7 +26,7 @@ def print_token_report(text_content, model_limit=128000):
     ratio = token_count / model_limit
 
     print(f"[INFO] Est Tokens:  {token_count:,}", end=' ')
-    print(f"Limit Tokens: {model_limit:,}")
+    print(f"Limit Tokens: {model_limit:,}", end=' ')
 
 ts_encoding_dict = {'DFLoader': ts2DFLoader, 'html': ts2html, 'markdown': ts2markdown, 'json': ts2json}
 dist_name = {'DTW': 'Dynamic Time Warping (DTW)', 'ED': 'euclidean', 'SED': 'standard euclidean',
@@ -154,6 +154,7 @@ class FM_PD(nn.Module):
         
         # E. 确定结果保存路径 (隔离不同实验的结果)
         save_dir = os.path.join(self.base_result_path, exp_id)
+        total_report_path = os.path.join(self.base_result_path, "total")
         os.makedirs(save_dir, exist_ok=True)
         
         os.makedirs(os.path.join(save_dir, 'description'), exist_ok=True)
@@ -179,10 +180,10 @@ class FM_PD(nn.Module):
 
             **Execution Environment (CRITICAL - DO NOT CHANGE):**
             The following GLOBAL VARIABLES are ALREADY defined. Use them directly.
-            1. `TEST_DATA_PATH`: Path to test data .npy `(N_test, Channels, Time)`.
-            2. `TRAIN_DATA_PATH`: Path to train data .npy `(N_train, Channels, Time)`.
-            3. `NEI_MAP_PATH`: Path to neighbor index .json `[{"neighbors": [...]}, ...]`.
-            4. `RESULT_SAVE_PATH`: **Target file path to save the output JSON.** (input)
+            1. `TEST_DATA_PATH`: Path to test data (format as `.npy` shape:`(N_test, Channels, Time)`).
+            2. `TRAIN_DATA_PATH`: Path to train data (format as `.npy` shape:`(N_train, Channels, Time)`).
+            3. `NEI_MAP_PATH`: Path to neighbor index (format as `.json`) shape:`[{"neighbors": [...]}, ...]`.
+            4. `RESULT_SAVE_PATH`: **Target file path to save the output JSON file.**
 
             **Instruction - "Be the Detective":**
             1. **Autonomy on Logic:** I will NOT tell you which features to use (RMS, Kurtosis, FFT, etc.). You decide what reveals the "truth" hidden in the signals.
@@ -349,7 +350,7 @@ class FM_PD(nn.Module):
             {description}
 
             ### 2. Neighbor Labels (For Reference)
-            The labels of the 15 most similar samples found in the training set are: {nei_labels}, you should use these neighbor labels to assist or DECIDE your decision-making.
+            The labels of the 15 most similar samples found in the training set are: {nei_labels}, you should pay more attention to these results and use these neighbor labels to assist or DECIDE your decision-making.
             *Note: G0 represents Health. G1-G8 represent different fault types (Crack, Worn, Missing, Chipped, Inner Race, Outer Race, Rolling Element, Cage).*
 
             ### 3. Constraints (Strictly Enforced)
@@ -435,9 +436,9 @@ class FM_PD(nn.Module):
             # print(f"Prompt Tokens: {est_tokens:.0f} ---")
             output = self.llm(content=prompt)
             
-            print(f"[INFO] Test index {i}:")
-            print(f"[LOG] True Label: {current_test_labels[i]}")
-            print("[LOG] " + output)
+            print(f"[INFO] Test index {i}:", end=' ')
+            print(f" True Label: {current_test_labels[i]}",end='')
+            print("[LOG] " + output.strip().split('\n')[0])
             
             # output = self.llama(role='user', content=prompt)
             # log_dir = self.log_dir
@@ -464,7 +465,15 @@ class FM_PD(nn.Module):
             json.dump(true_labels_list, f)
             
         # 调用评估
-        analyze_json_results(final_result_path, true_labels_json_path, self.llm_name, save_path=os.path.join(save_dir, f'result_report{self.timestamp}.txt'))
+        analyze_json_results(result_file_path=final_result_path, 
+                             true_labels_path=true_labels_json_path, 
+                             llm_name=self.llm_name, 
+                             save_path=os.path.join(save_dir, f'test_WC{test_num}_train_WCs{train_tag}result_report{self.timestamp}.txt'))
+        
+        analyze_json_results(result_file_path=final_result_path, 
+                             true_labels_path=true_labels_json_path, 
+                             llm_name=self.llm_name, 
+                             save_path=os.path.join(total_report_path, f'test_WC{test_num}_train_WCs{train_tag}result_report{self.timestamp}.txt'))
         
         return final_answers
     
