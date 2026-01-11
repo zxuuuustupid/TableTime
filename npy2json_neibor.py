@@ -170,20 +170,31 @@ def pipeline(dataset, train_nums, test_num, dist_map, neighbor_num):
 if __name__ == "__main__":
     import datetime # 确保导入 datetime
     
-    # dataset = 'BJTU-gearbox'
+    dataset = 'BJTU-gearbox'
     # dataset = 'BJTU-motor'
-    dataset = 'BJTU-leftaxlebox'
+    # dataset = 'BJTU-leftaxlebox'
     dist_map_name = 'FIW'
     dist_map = {dist_map_name: find_nearest_neighbors_weighted_feature}
     neighbor_num = 15
     all_wcs = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     
     # 定义训练场景
+    # all_train_scenarios = [
+    #     [1, 4],
+    #     [1, 4, 7],
+    #     [1, 2, 3, 4, 6],
+    #     [1, 2, 3, 4, 5, 6, 7]
+    # ]
+    
+    # all_train_scenarios = [
+    #     [1, 2],
+    #     [1, 2, 3],
+    #     [1, 2, 3, 4, 5],
+    #     [1, 2, 3, 4, 5, 6, 7]
+    # ]
+    
     all_train_scenarios = [
-        [1, 2],
-        [1, 2, 3],
-        [1, 2, 3, 4, 5],
-        [1, 2, 3, 4, 5, 6, 7]
+        [1, 2, 3,4]
     ]
     
     # 用于收集所有实验结果的列表

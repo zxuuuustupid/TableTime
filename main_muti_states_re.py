@@ -503,9 +503,9 @@ if __name__ == "__main__":
     all_wcs = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     # 示例：只测一个场景验证代码
     train_scenarios = [
-        [1, 2, 3], # 用 WC1, WC2, WC3 训练
-        [1, 2, 3,4,5], # 用 WC4, WC5, WC6 训练
-        [1,2,3,4,5,6,7]  # 用 WC7, WC8, WC9 训练
+        # [1, 2, 3], # 用 WC1, WC2, WC3 训练
+        [1, 2, 3,4], # 用 WC4, WC5, WC6 训练
+        # [1,2,3,4,5,6,7]  # 用 WC7, WC8, WC9 训练
     ]
 
     for train_nums in train_scenarios:

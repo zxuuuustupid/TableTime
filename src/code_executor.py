@@ -67,6 +67,9 @@ def execute_generated_code(code_str, test_path, train_data_path, nei_map_path, r
         "NEI_MAP_PATH": nei_map_path,
         "RESULT_SAVE_PATH": result_save_path
     }
+    # code_str = code_str.replace("sys.exit", "pass # sys.exit")
+    # code_str = code_str.replace("exit(", "print( # exit(")
+    # code_str = code_str.replace("quit(", "print( # quit(")
 
     try:
         # 编译并加载所有函数定义

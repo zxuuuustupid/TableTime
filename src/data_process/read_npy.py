@@ -1,7 +1,7 @@
 import numpy as np
 import pprint
 
-path = "data\\BJTU-gearbox\\WC9\\y_valid.npy"
+path = "data\\BJTU-motor\\WC9\\X_valid.npy"
 # path = "data/FingerMovements/X_valid.npy"
 data = np.load(path, allow_pickle=True)
 
@@ -11,7 +11,7 @@ print("📏 数据形状:", getattr(data, 'shape', '无 shape 属性'))
 print("🔢 数据类型 (dtype):", getattr(data, 'dtype', '无 dtype 属性'))
 
 # 如果是数组，打印前几个元素
-if isinstance(data, np.ndarray):
-    print("📊 数据前5个元素:\n", data[:5])
-else:
-    print("📊 数据内容:\n", data)
+# if isinstance(data, np.ndarray):
+#     print("📊 数据前5个元素:\n", data[:5])
+# else:
+#     print("📊 数据内容:\n", data)
