@@ -16,6 +16,7 @@ class MultiClassDataGenerator:
         self.train_per_class = split_cfg['train_per_class']
         self.valid_per_class = split_cfg['valid_per_class']
         self.total_per_file = self.train_per_class + self.valid_per_class
+        self.component = self.cfg['component']  # 固定为 gearbox 组件
 
     def _extract_sequential_segments(self, csv_path):
         """从单个CSV文件中严格按时间顺序提取窗口"""
@@ -59,10 +60,10 @@ class MultiClassDataGenerator:
                         
                         # 自动寻找文件夹下符合条件的文件
                         matched_files = [f for f in os.listdir(dir_path) 
-                                    if f.startswith("data_gearbox") and f.endswith(".csv")]
+                                    if f.startswith(f"data_{self.component}") and f.endswith(".csv")]
                         
                         if not matched_files:
-                            raise FileNotFoundError(f"未找到 gearbox 相关文件")
+                            raise FileNotFoundError(f"未找到 {selfcomponent} 相关文件")
                         
                         # 取匹配到的第一个文件
                         csv_path = os.path.join(dir_path, matched_files[0])
@@ -113,15 +114,20 @@ if __name__ == "__main__":
     # 基础配置，删掉或忽略速度和负载的硬编码
     CONFIG = {
         "base_path": "F:/Project/TripletLoss/BJTU-RAO Bogie Datasets/Data/BJTU_RAO_Bogie_Datasets/",
-        "fault_types": [f"M0_G{i}_LA0_RA0" for i in [0,1,2,3]], # 快速生成G0-G8
+        # "fault_types": [f"M0_G{i}_LA0_RA0" for i in [0,1,2,3]], # 快速生成G0-G8
+        # "fault_types": [f"M{i}_G0_LA0_RA0" for i in [0,1,2,3]], # 快速生成G0-G8
+        "fault_types": [f"M0_G0_LA{i}_RA0" for i in [0,1,2,4]], # 快速生成G0-G8
         "window": {"size": 2048, "overlap_rate": 0.0},
         "split": {"train_per_class": 60, "valid_per_class": 60},
+        "samples": [1],  # 初始值，后续循环中会修改
+        "component": "leftaxlebox",  # 固定为 gearbox 组件
     }
+    
 
     # 循环处理每个 Sample，并对应到 WC 目录
     for s_id in range(1, 10): # 假设处理 Sample 1 到 9
         CONFIG['samples'] = [s_id] # 每次只处理当前这一个 Sample 文件夹
-        CONFIG['output_dir'] = f"data/BJTU-gearbox/WC{s_id}" # 动态修改输出路径
+        CONFIG['output_dir'] = f"data/BJTU-{CONFIG['component']}/WC{s_id}" # 动态修改输出路径
         
         print(f"\n开始生成工况 WC{s_id} 的数据...")
         generator = MultiClassDataGenerator(CONFIG)

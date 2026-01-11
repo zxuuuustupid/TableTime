@@ -26,7 +26,7 @@ def print_token_report(text_content, model_limit=128000):
     ratio = token_count / model_limit
 
     print(f"[INFO] Est Tokens:  {token_count:,}", end=' ')
-    print(f"Limit Tokens: {model_limit:,}")
+    print(f"Limit Tokens: {model_limit:,}", end=' ')
 
 ts_encoding_dict = {'DFLoader': ts2DFLoader, 'html': ts2html, 'markdown': ts2markdown, 'json': ts2json}
 dist_name = {'DTW': 'Dynamic Time Warping (DTW)', 'ED': 'euclidean', 'SED': 'standard euclidean',
@@ -154,6 +154,7 @@ class FM_PD(nn.Module):
         
         # E. 确定结果保存路径 (隔离不同实验的结果)
         save_dir = os.path.join(self.base_result_path, exp_id)
+        total_report_path = os.path.join(self.base_result_path, "total")
         os.makedirs(save_dir, exist_ok=True)
         
         os.makedirs(os.path.join(save_dir, 'description'), exist_ok=True)
@@ -179,10 +180,10 @@ class FM_PD(nn.Module):
 
             **Execution Environment (CRITICAL - DO NOT CHANGE):**
             The following GLOBAL VARIABLES are ALREADY defined. Use them directly.
-            1. `TEST_DATA_PATH`: Path to test data .npy `(N_test, Channels, Time)`.
-            2. `TRAIN_DATA_PATH`: Path to train data .npy `(N_train, Channels, Time)`.
-            3. `NEI_MAP_PATH`: Path to neighbor index .json `[{"neighbors": [...]}, ...]`.
-            4. `RESULT_SAVE_PATH`: **Target file path to save the output JSON.** (input)
+            1. `TEST_DATA_PATH`: Path to test data (format as `.npy` shape:`(N_test, Channels, Time)`).
+            2. `TRAIN_DATA_PATH`: Path to train data (format as `.npy` shape:`(N_train, Channels, Time)`).
+            3. `NEI_MAP_PATH`: Path to neighbor index (format as `.json`) shape:`[{"neighbors": [...]}, ...]`.
+            4. `RESULT_SAVE_PATH`: **Target file path to save the output JSON file.**
 
             **Instruction - "Be the Detective":**
             1. **Autonomy on Logic:** I will NOT tell you which features to use (RMS, Kurtosis, FFT, etc.). You decide what reveals the "truth" hidden in the signals.
@@ -283,25 +284,26 @@ class FM_PD(nn.Module):
         print(f"[INFO] --- Code Execution Log ---\n{execution_output}\n")
 
         if execution_output and "FATAL_EXECUTION_ERROR" in execution_output:
-             print(f"[Error] AI's code failed to execute. The detailed traceback is in the log above.")
+             print(f"[Error] AI's code failed to execute. The detailed traceback is in the log above")
              # 直接返回，把完整的日志也包含进去，方便调试
-             return [{"error": "Code execution failed.", "log": execution_output}]
+            #  return [{"error": "Code execution failed.", "log": execution_output}]
         # =========================================================
         # 阶段二：逐一诊断
         # =========================================================
-        
+        desc_map = {}
         # 4. 检查并读取 AI 生成的描述文件
-        if not os.path.exists(feature_desc_path):
-            print(f"[ERROR] AI's code did not create the result file at {feature_desc_path}")
-            return [{"error": "Result file not found."}]
-            
-        with open(feature_desc_path, 'r', encoding='utf-8') as f:
-            # 将 JSON 读入内存，并转成一个字典方便快速查找
-            # 假设 JSON 格式是 [{"test_index": G0, "description": "..."}, ...]
-            descriptions_list = json.load(f)
-            descriptions_map = {item['test_index']: item['description'] for item in descriptions_list}
+        # descriptions_map={}
+        if os.path.exists(feature_desc_path):
+            try:
+                with open(feature_desc_path, 'r', encoding='utf-8') as f:
+                    descriptions = json.load(f)
+                    # 转字典方便查找
+                    desc_map = {item['test_index']: item['description'] for item in descriptions}
+                print(f"[INFO] Phase 3: Found {len(desc_map)} descriptions. Starting one-by-one diagnosis...")
+            except Exception as e:
+                print(f"[WARNING] Failed to parse description file: {e}")
         
-        print(f"[INFO] Phase 3: Found {len(descriptions_map)} descriptions. Starting one-by-one diagnosis...")
+        # print(f"[INFO] Phase 3: Found {len(desc_map)} descriptions. Starting one-by-one diagnosis...")
         
         # for i in range(self.x_test.shape[0]):
             
@@ -320,10 +322,10 @@ class FM_PD(nn.Module):
                 
         #     # test = self.ts_encoding(x_use)  # 测试集编码
         
-        with open(feature_desc_path, 'r', encoding='utf-8') as f:
-            descriptions = json.load(f)
-            # 转字典方便查找
-            desc_map = {item['test_index']: item['description'] for item in descriptions}
+        # with open(feature_desc_path, 'r', encoding='utf-8') as f:
+        #     descriptions = json.load(f)
+        #     # 转字典方便查找
+        #     desc_map = {item['test_index']: item['description'] for item in descriptions}
 
         final_answers = []
         
@@ -349,7 +351,7 @@ class FM_PD(nn.Module):
             {description}
 
             ### 2. Neighbor Labels (For Reference)
-            The labels of the 15 most similar samples found in the training set are: {nei_labels}, you should use these neighbor labels to assist or DECIDE your decision-making.
+            The labels of the 15 most similar samples found in the training set are: {nei_labels}, you should pay more attention to these results and use these neighbor labels to assist or DECIDE your decision-making.
             *Note: G0 represents Health. G1-G8 represent different fault types (Crack, Worn, Missing, Chipped, Inner Race, Outer Race, Rolling Element, Cage).*
 
             ### 3. Constraints (Strictly Enforced)
@@ -422,10 +424,7 @@ class FM_PD(nn.Module):
             #     f'**Data:** {test}\n\n'
             #     '**The analysis process MUST be **fewer than three sentences** and highly concise.Now, begin your analysis :**'
             # )
-                
-                
 
-                
 
             # 调用分析函数
             print_token_report(prompt, model_limit=128000)
@@ -438,9 +437,9 @@ class FM_PD(nn.Module):
             # print(f"Prompt Tokens: {est_tokens:.0f} ---")
             output = self.llm(content=prompt)
             
-            print(f"[INFO] Test index {i}:")
-            print(f"[LOG] True Label: {current_test_labels[i]}")
-            print("[LOG] " + output)
+            print(f"[INFO] Test index {i}:", end=' ')
+            print(f" True Label: {current_test_labels[i]}",end='')
+            print("[LOG] " + output.strip().split('\n')[0])
             
             # output = self.llama(role='user', content=prompt)
             # log_dir = self.log_dir
@@ -467,7 +466,15 @@ class FM_PD(nn.Module):
             json.dump(true_labels_list, f)
             
         # 调用评估
-        analyze_json_results(final_result_path, true_labels_json_path, self.llm_name)
+        analyze_json_results(result_file_path=final_result_path, 
+                             true_labels_path=true_labels_json_path, 
+                             llm_name=self.llm_name, 
+                             save_path=os.path.join(save_dir, f'test_WC{test_num}_train_WCs{train_tag}result_report{self.timestamp}.txt'))
+        
+        analyze_json_results(result_file_path=final_result_path, 
+                             true_labels_path=true_labels_json_path, 
+                             llm_name=self.llm_name, 
+                             save_path=os.path.join(total_report_path, f'test_WC{test_num}_train_WCs{train_tag}result_report{self.timestamp}.txt'))
         
         return final_answers
     
@@ -502,14 +509,21 @@ if __name__ == "__main__":
 
     for train_nums in train_scenarios:
         test_wcs = [x for x in all_wcs if x not in train_nums]
+
         
         for test_wc in test_wcs:
-            try:
-                # 调用 forward，传入具体的工况号
-                model.forward(train_nums=train_nums, test_num=test_wc)
-            except Exception as e:
-                print(f"[ERROR] Experiment Train{train_nums}_Test{test_wc} failed: {e}")
-                import traceback
-                traceback.print_exc()
+            # if train_nums == [1,2,3] and test_wc not in [6,7,8,9]:
+            if  0==1:
+                print(f"[DEBUG] Skipping test WC{test_wc} for train set {train_nums}")
+                continue
+            else:
+                print(f"[DEBUG] Running test WC{test_wc} for train set {train_nums}")
+                try:
+                    # 调用 forward，传入具体的工况号
+                    model.forward(train_nums=train_nums, test_num=test_wc)
+                except Exception as e:
+                    print(f"[ERROR] Experiment Train{train_nums}_Test{test_wc} failed: {e}")
+                    import traceback
+                    traceback.print_exc()
     
     
