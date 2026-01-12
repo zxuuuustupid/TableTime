@@ -79,7 +79,28 @@ class MultiClassDataGenerator:
                         all_train_x.append(train_x)
                         all_valid_x.append(valid_x)
                         
-                        label_str = f"G{label_idx}"
+                        import re # 记得在文件最开头 import re，或者直接写在这里也行
+                    
+                        if "LA" in fault_type and "M0_G0" in fault_type: 
+                            # 匹配 M0_G0_LA{i}_RA0 -> G13-G16
+                            # 逻辑：LA1->13, LA2->14... (12 + i)
+                            idx_match = re.search(r"LA(\d+)", fault_type)
+                            if idx_match and 1 <= int(idx_match.group(1)) <= 4:
+                                label_str = f"G{12 + int(idx_match.group(1))}"
+                            else:
+                                label_str = f"G{label_idx}" # 匹配不到按默认
+                                
+                        elif "M" in fault_type and "G0_LA0" in fault_type and "M0" not in fault_type:
+                            # 匹配 M{i}_G0_LA0_RA0 -> G9-G12
+                            # 逻辑：M1->9, M2->10... (8 + i)
+                            idx_match = re.search(r"M(\d+)", fault_type)
+                            if idx_match and 1 <= int(idx_match.group(1)) <= 4:
+                                label_str = f"G{8 + int(idx_match.group(1))}"
+                            else:
+                                label_str = f"G{label_idx}" # 匹配不到按默认
+                        else:
+                            # 其他情况 (比如 G0-G8)
+                            label_str = f"G{label_idx}"
                         all_train_y.extend([label_str] * self.train_per_class)
                         all_valid_y.extend([label_str] * self.valid_per_class)
                         
@@ -109,27 +130,80 @@ class MultiClassDataGenerator:
             np.save(os.path.join(output_dir, 'y_valid.npy'), y_valid)
 
             print(f"\n--- 数据处理完成: {os.path.basename(output_dir)} ---")
-            print(f"X_train 形状: {X_train.shape} | X_valid 形状: {X_valid.shape}")
+            print(f"X_train 形状: {X_train.shape} | X_valid 形状: {X_valid.shape}|y_train 形状: {y_train.shape}|y_valid 形状: {y_valid.shape}")
 
-if __name__ == "__main__":
-    # 基础配置，删掉或忽略速度和负载的硬编码
-    CONFIG = {
-        "base_path": "F:/Project/TripletLoss/BJTU-RAO Bogie Datasets/Data/BJTU_RAO_Bogie_Datasets/",
-        "fault_types": [f"M0_G{i}_LA0_RA0" for i in [0,1,2,3]], # 快速生成G0-G8
-        # "fault_types": [f"M{i}_G0_LA0_RA0" for i in [0,1,2,3]], # 快速生成G0-G8
-        # "fault_types": [f"M0_G0_LA{i}_RA0" for i in [0,1,2,4]], # 快速生成G0-G8
-        "window": {"size": 2048, "overlap_rate": 0.0},
-        "split": {"train_per_class": 60, "valid_per_class": 60},
-        "samples": [1],  # 初始值，后续循环中会修改
-        "component": "leftaxlebox",  # 固定为 gearbox 组件
-    }
+# if __name__ == "__main__":
+#     # 基础配置，删掉或忽略速度和负载的硬编码
+#     CONFIG = {
+#         "base_path": "F:/Project/TripletLoss/BJTU-RAO Bogie Datasets/Data/BJTU_RAO_Bogie_Datasets/",
+#         # "fault_types": [f"M0_G{i}_LA0_RA0" for i in [0,1,2,3]], # 快速生成G0-G8
+#         "fault_types": [f"M{i}_G0_LA0_RA0" for i in [0,1,2,3]], # 快速生成G0-G8
+#         # "fault_types": [f"M0_G0_LA{i}_RA0" for i in [0,1,2,4]], # 快速生成G0-G8
+#         "window": {"size": 2048, "overlap_rate": 0.0},
+#         "split": {"train_per_class": 60, "valid_per_class": 60},
+#         "samples": [1],  # 初始值，后续循环中会修改
+#         "component": "leftaxlebox",  # 固定为 gearbox 组件
+#     }
     
 
-    # 循环处理每个 Sample，并对应到 WC 目录
-    for s_id in range(1, 10): # 假设处理 Sample 1 到 9
-        CONFIG['samples'] = [s_id] # 每次只处理当前这一个 Sample 文件夹
-        CONFIG['output_dir'] = f"data/BJTU-{CONFIG['component']}/WC{s_id}" # 动态修改输出路径
+#     # 循环处理每个 Sample，并对应到 WC 目录
+#     for s_id in range(1, 10): # 假设处理 Sample 1 到 9
+#         CONFIG['samples'] = [s_id] # 每次只处理当前这一个 Sample 文件夹
+#         CONFIG['output_dir'] = f"few_shot_test/data/BJTU-{CONFIG['component']}/WC{s_id}" # 动态修改输出路径
         
-        print(f"\n开始生成工况 WC{s_id} 的数据...")
+#         print(f"\n开始生成工况 WC{s_id} 的数据...")
+#         generator = MultiClassDataGenerator(CONFIG)
+#         generator.process()
+
+# ... [前面的 MultiClassDataGenerator 类定义保持不变] ...
+
+if __name__ == "__main__":
+    # 基础配置
+    CONFIG = {
+        "base_path": "F:/Project/TripletLoss/BJTU-RAO Bogie Datasets/Data/BJTU_RAO_Bogie_Datasets/",
+        # "fault_types": [f"M0_G{i}_LA0_RA0" for i in [0,1,2,3,4,5,6,7,8]], 
+        
+        "fault_types": [
+            # 原有的 G0-G8
+            *[f"M0_G{i}_LA0_RA0" for i in range(9)],
+            # 新增的 M故障 (G9-G12)
+            *[f"M{i}_G0_LA0_RA0" for i in range(1, 5)],
+            # 新增的 LA故障 (G13-G16)
+            *[f"M0_G0_LA{i}_RA0" for i in range(1, 5)]
+        ],
+        "window": {"size": 2048, "overlap_rate": 0.0},
+        "split": {
+            "train_per_class": 60,  # 默认值
+            "valid_per_class": 60
+        },
+        "samples": [1], 
+        "component": "gearbox", 
+    }
+    
+    # --- 新增：指定哪个 WC 是特殊的（Few-Shot） ---
+    TARGET_FEW_SHOT_WC = 6  # 比如你想让 WC1 只有 2 个训练样本
+    NORMAL_TRAIN_NUM = 60    # 正常的训练样本数
+    FEW_SHOT_TRAIN_NUM = 60   # 指定工况的训练样本数
+    # ------------------------------------------
+
+    # 循环处理每个 Sample (WC)
+    for s_id in range(1, 10): 
+        # 1. 设置当前处理的 Sample ID
+        CONFIG['samples'] = [s_id] 
+        
+        # 2. 判断是否是指定的 WC，动态修改训练样本数
+        if s_id == TARGET_FEW_SHOT_WC:
+            print(f"\n⚠️ 检测到目标工况 WC{s_id}，训练样本数设置为: {FEW_SHOT_TRAIN_NUM}")
+            CONFIG['split']['train_per_class'] = FEW_SHOT_TRAIN_NUM
+        else:
+            CONFIG['split']['train_per_class'] = NORMAL_TRAIN_NUM
+            
+        # 3. 设置输出目录
+        CONFIG['output_dir'] = f"few_shot_test/data/BJTU-{CONFIG['component']}/WC{s_id}"
+        
+        print(f"开始生成工况 WC{s_id} 的数据 (Train: {CONFIG['split']['train_per_class']}, Valid: {CONFIG['split']['valid_per_class']})...")
+        
+        # 4. 实例化并执行
+        # 注意：每次循环都重新实例化，这样类内部的 self.train_per_class 和 self.total_per_file 会根据最新的 CONFIG 重新计算
         generator = MultiClassDataGenerator(CONFIG)
         generator.process()

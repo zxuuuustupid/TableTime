@@ -176,14 +176,30 @@ if __name__ == "__main__":
     dist_map_name = 'FIW'
     dist_map = {dist_map_name: find_nearest_neighbors_weighted_feature}
     neighbor_num = 15
-    all_wcs = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    # all_wcs = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    
+    all_wcs = [1, 2, 3, 4, 5, 7, 8, 9]
     
     # 定义训练场景
+    # all_train_scenarios = [
+    #     [1, 4],
+    #     [1, 4, 7],
+    #     [1, 2, 3, 4, 6],
+    #     [1, 2, 3, 4, 5, 6, 7]
+    # ]
+    
+    # all_train_scenarios = [
+    #     [1, 2],
+    #     [1, 2, 3],
+    #     [1, 2, 3, 4, 5],
+    #     [1, 2, 3, 4, 5, 6, 7]
+    # ]
+    
     all_train_scenarios = [
         [1, 2],
-        [1, 2, 3],
-        [1, 2, 3, 4, 5],
-        [1, 2, 3, 4, 5, 6, 7]
+        # [1,2,3,4,5],
+        [1,2,3,4,5,7,],
+        [1,2,3,4,5,7,8]
     ]
     
     # 用于收集所有实验结果的列表
@@ -192,6 +208,7 @@ if __name__ == "__main__":
     # --- 开始大循环 ---
     for train_nums in all_train_scenarios:
         test_wcs = [wc for wc in all_wcs if wc not in train_nums]
+        # test_wcs = [3,4,5,6,7,8,9]
         
         print(f"\n{'='*60}")
         print(f"🚀 大实验启动：训练集组合 = {train_nums}")

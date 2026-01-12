@@ -90,17 +90,18 @@ class FM_PD(nn.Module):
         # self.log_dir = os.path.join(self.base_path, 'txt')
         # self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         # self.file_prefix = f'FM_{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}_{self.timestamp}'
-        self.base_result_path = f'result/{self.dataset}/{data_dict[encoding_style]}/{self.dist}_dist'
+        self.base_result_path = f'few_shot_test/result/{self.dataset}/{data_dict[encoding_style]}/{self.dist}_dist'
         # self.train_nums = train_nums
         # self.test_num = test_num
 
-    def forward(self,train_nums=None,test_num=None):
+    def forward(self,train_nums=None,test_num=None,n_shots=None):
         """
         train_nums: list, e.g. [1, 2]
         test_num: int, e.g. 3
         """
          # 1. 构造当前实验的唯一标识符
-        train_tag = "_".join(map(str, train_nums))
+        train_nums2=train_nums+[test_num]
+        train_tag = "_".join(map(str, train_nums2))
         exp_id = f"test_WC{test_num}_train_WCs{train_tag}"
         
         print(f"\n[INFO] === Starting Workflow: {exp_id} ===")
@@ -115,27 +116,67 @@ class FM_PD(nn.Module):
         # 步骤 1: 动态加载数据 & 准备 AI 读取的临时文件
         # ------------------------------------------------------------------
         
-        # A. 加载并合并训练数据 (用于 AI 代码读取)
-        # 路径: data/BJTU-gearbox/WC1/X_train.npy
+        # # A. 加载并合并训练数据 (用于 AI 代码读取)
+        # # 路径: data/BJTU-gearbox/WC1/X_train.npy
+        # train_x_list = []
+        # for wc in train_nums:
+        #     path = f'few_shot_test/data/{self.dataset}/WC{wc}/X_train.npy'
+        #     train_x_list.append(np.load(path, mmap_mode='c'))
+        
+        # # 合并所有训练数据
+        # current_train_data = np.concatenate(train_x_list, axis=0)
+        
+        # ------------------------------------------------------------------
+        # 步骤 1: 动态加载数据 & 准备 AI 读取的临时文件
+        # ------------------------------------------------------------------
+        
+        # A. 加载并合并训练数据 (必须重现 pipeline 中的混合库逻辑)
         train_x_list = []
+        train_y_list = [] # 标签也要同步加载，用于给 AI 提供 neighbor label
+        
+        # 1. 加载源工况 (Source WCs) - 全量
         for wc in train_nums:
-            path = f'data/{self.dataset}/WC{wc}/X_train.npy'
-            train_x_list.append(np.load(path, mmap_mode='c'))
+            path_x = f'few_shot_test/data/{self.dataset}/WC{wc}/X_train.npy'
+            path_y = f'few_shot_test/data/{self.dataset}/WC{wc}/y_train.npy'
+            train_x_list.append(np.load(path_x, mmap_mode='c'))
+            train_y_list.append(np.load(path_y, mmap_mode='c'))
+            
+        # 2. [新增关键逻辑] 加载目标工况的小样本 (Target Few-shot)
+        # 必须和 pipeline_few_shot.py 的切片逻辑完全一致！
+        path_x_target = f'few_shot_test/data/{self.dataset}/WC{test_num}/X_train.npy'
+        path_y_target = f'few_shot_test/data/{self.dataset}/WC{test_num}/y_train.npy'
         
-        # 合并所有训练数据
+        x_t = np.load(path_x_target, mmap_mode='c')
+        y_t = np.load(path_y_target, mmap_mode='c')
+        
+        # 筛选小样本 (复制之前的逻辑)
+        unique_labels = np.unique(y_t)
+        sel_indices = []
+        for lbl in unique_labels:
+            idxs = np.where(y_t == lbl)[0]
+            # 取前 n_shots 个
+            sel_indices.extend(idxs[:n_shots])
+            
+        # 添加到列表
+        train_x_list.append(x_t[sel_indices])
+        train_y_list.append(y_t[sel_indices])
+        
+        # 合并所有训练数据 (构建完整的混合知识库)
         current_train_data = np.concatenate(train_x_list, axis=0)
+        current_train_labels = np.concatenate(train_y_list, axis=0)
         
+                
         # B. 加载测试数据
-        test_data_path_source = f'data/{self.dataset}/WC{test_num}/X_valid.npy'
+        test_data_path_source = f'few_shot_test/data/{self.dataset}/WC{test_num}/X_valid.npy'
         current_test_data = np.load(test_data_path_source, mmap_mode='c')
         
         # 加载测试集标签 (用于最后评估)
-        test_label_path_source = f'data/{self.dataset}/WC{test_num}/y_valid.npy'
+        test_label_path_source = f'few_shot_test/data/{self.dataset}/WC{test_num}/y_valid.npy'
         current_test_labels = np.load(test_label_path_source, mmap_mode='c')
 
         # C. 确定邻居索引文件路径 (这是 neighbor_find 生成的路径)
         # 路径示例: data_index/BJTU-gearbox/test_WC3_train_WCs1_2/FIW_dist/nearest_15_neighbors.json
-        nei_map_path = os.path.abspath(f'./data_index/{self.dataset}/test_WC{test_num}_train_WCs{train_tag}/{self.dist}_dist/nearest_{self.nei_number}_neighbors.json')
+        nei_map_path = os.path.abspath(f'./few_shot_test/data_index/{self.dataset}/test_WC{test_num}_train_WCs{train_tag}/{self.dist}_dist/nearest_{self.nei_number}_neighbors.json')
         
         if not os.path.exists(nei_map_path):
             print(f"[ERROR] Neighbor file not found: {nei_map_path}")
@@ -242,6 +283,7 @@ class FM_PD(nn.Module):
                 '    *   `G6`: gearbox Bearing outer race fault — Damage on the stationary outer ring, producing modulation patterns in vibration spectra.\n'
                 '    *   `G7`: gearbox rolling element fault — Pitting or spall on balls or rollers, resulting in repetitive impacts at ball-pass frequency.\n'
                 '    *   `G8`: gearbox bearing cage fault — Damage or deformation of the retainer (cage), causing irregular spacing and secondary impacts between rolling elements.\n'
+                '    *   `G9-G16`: other fault states including various motor and axle box bearing faults.\n'
                 f'*   **Sampling Parameters:** 24 channels(**CURRENT DATA INCLUDE {len(self.channel_list)}**) covering vibration, current, speed, and sound. Sampling frequency: **64kHz**.\n\n'
 
                 '### 2. Sampling Channel Locations and Physical Significance\n'
@@ -333,8 +375,9 @@ class FM_PD(nn.Module):
         # 为了获取邻居标签，我们需要重新映射一下索引
         # 因为 current_train_data 是拼接的，我们需要知道每个邻居的全局索引对应的 label
         # 简单的做法：同样把 label 拼起来
-        train_y_list = [np.load(f'data/{self.dataset}/WC{wc}/y_train.npy', mmap_mode='c') for wc in train_nums]
-        current_train_labels = np.concatenate(train_y_list, axis=0)
+        
+        # train_y_list = [np.load(f'few_shot_test/data/{self.dataset}/WC{wc}/y_train.npy', mmap_mode='c') for wc in train_nums]
+        # current_train_labels = np.concatenate(train_y_list, axis=0)
 
         for i in range(current_test_data.shape[0]):
             description = desc_map.get(i, "No description.")
@@ -352,13 +395,13 @@ class FM_PD(nn.Module):
             {description}
 
             ### 2. Neighbor Labels (For Reference)
-            The labels of the 15 most similar samples found in the training set are: {nei_labels}, you should pay more attention to these results and use these neighbor labels to assist or DECIDE your decision-making.
-            *Note: G0 represents Health. G1-G8 represent different fault types (Crack, Worn, Missing, Chipped, Inner Race, Outer Race, Rolling Element, Cage).*
+            The labels of the 15 most similar samples found in the training set are: {nei_labels}, you should pay more attention to these results and use these neighbor labels to assist or DECIDE your decision-making, These Labels are VERY important.
+            *Note: G0 represents Health. G1-G16 represent different fault types (Crack, Worn, Missing, Chipped, Inner Race, Outer Race, Rolling Element, Cage).*
 
             ### 3. Constraints (Strictly Enforced)
             1.  **Output Format:** Your response MUST start with the classification result and the neighbor labels.
             2.  **Strict Formatting for Line 1:** The first line MUST be in the format `result,[label1,label2,...,label{self.nei_number}]`.
-                - `result` MUST be one of `G0, G1, ..., G8`.
+                - `result` MUST be one of `G0, G1, ..., G16`.
                 - The list MUST contain the {self.nei_number} neighbor labels provided above.
                 - **DO NOT** add any other words or explanations on this line.
             3.  **Examples for Line 1:**
@@ -470,12 +513,12 @@ class FM_PD(nn.Module):
         analyze_json_results(result_file_path=final_result_path, 
                              true_labels_path=true_labels_json_path, 
                              llm_name=self.llm_name, 
-                             save_path=os.path.join(save_dir, f'test_WC{test_num}_train_WCs{train_tag}result_report{self.timestamp}.txt'))
+                             save_path=os.path.join(save_dir, f'test_WC{test_num}_train_WCs{train_tag}_{self.n_shots}shot_result_report{self.timestamp}.txt'))
         
         analyze_json_results(result_file_path=final_result_path, 
                              true_labels_path=true_labels_json_path, 
                              llm_name=self.llm_name, 
-                             save_path=os.path.join(total_report_path, f'test_WC{test_num}_train_WCs{train_tag}result_report{self.timestamp}.txt'))
+                             save_path=os.path.join(total_report_path, f'test_WC{test_num}_train_WCs{train_tag}_{self.n_shots}shot_result_report{self.timestamp}.txt'))
         
         return final_answers
     
@@ -497,19 +540,20 @@ if __name__ == "__main__":
         temperature=cfg['llm']['temperature'],
         top_p=cfg['llm']['top_p'],
         max_tokens=cfg['llm']['max_tokens']
+        # n_shots=cfg['experiment']['n_shots']
     )
 
     # 2. 定义实验计划
-    all_wcs = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    all_wcs = [1, 2, 3, 4, 5, 7, 8, 9]
     # 示例：只测一个场景验证代码
     train_scenarios = [
-        [1, 2, 3], # 用 WC1, WC2, WC3 训练
-        [1, 2, 3,4,5], # 用 WC4, WC5, WC6 训练
-        [1,2,3,4,5,6,7]  # 用 WC7, WC8, WC9 训练
+ # 用 WC4, WC5, WC6 训练
+        [1,2,3,4,5,7,9]  # 用 WC7, WC8, WC9 训练
     ]
 
     for train_nums in train_scenarios:
-        test_wcs = [x for x in all_wcs if x not in train_nums]
+        # test_wcs = [x for x in all_wcs if x not in train_nums]
+        test_wcs = [8]
 
         
         for test_wc in test_wcs:
@@ -521,7 +565,7 @@ if __name__ == "__main__":
                 print(f"[DEBUG] Running test WC{test_wc} for train set {train_nums}")
                 try:
                     # 调用 forward，传入具体的工况号
-                    model.forward(train_nums=train_nums, test_num=test_wc)
+                    model.forward(train_nums=train_nums, test_num=test_wc,n_shots=cfg['experiment']['n_shots'])
                 except Exception as e:
                     print(f"[ERROR] Experiment Train{train_nums}_Test{test_wc} failed: {e}")
                     import traceback
