@@ -153,7 +153,7 @@ if __name__ == "__main__":
     # --- 新增：指定哪个 WC 是特殊的（Few-Shot） ---
     TARGET_FEW_SHOT_WC = 6  # 比如你想让 WC1 只有 2 个训练样本
     NORMAL_TRAIN_NUM = 60    # 正常的训练样本数
-    FEW_SHOT_TRAIN_NUM = 3   # 指定工况的训练样本数
+    FEW_SHOT_TRAIN_NUM = 60   # 指定工况的训练样本数
     # ------------------------------------------
 
     # 循环处理每个 Sample (WC)

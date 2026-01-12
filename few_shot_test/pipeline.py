@@ -551,7 +551,7 @@ if __name__ == "__main__":
     # dataset = 'BJTU-leftaxlebox'
     dist_map_name = 'FIW'
     dist_map = {dist_map_name: find_nearest_neighbors_weighted_feature}
-    neighbor_num = 15
+    neighbor_num = 3
     all_wcs = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     
     # 定义训练场景
@@ -580,6 +580,7 @@ if __name__ == "__main__":
     for train_nums in all_train_scenarios:
         test_wcs = [wc for wc in all_wcs if wc not in train_nums]
         
+        
         print(f"\n{'='*60}")
         print(f"🚀 大实验启动：训练集组合 = {train_nums}")
         print(f"{'='*60}")
@@ -604,7 +605,7 @@ if __name__ == "__main__":
     
     # 1. 生成文件名
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_dir = "result/log"
+    log_dir = "few_shot_test/result/log"
     os.makedirs(log_dir, exist_ok=True)
     filename = f"{dataset}_{dist_map_name}_{timestamp}.txt"
     filepath = os.path.join(log_dir, filename)
