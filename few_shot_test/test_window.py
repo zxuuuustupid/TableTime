@@ -165,7 +165,7 @@ if __name__ == "__main__":
         
         "fault_types": [
             # 原有的 G0-G8
-            *[f"M0_G{i}_LA0_RA0" for i in range(9)],
+            *[f"M0_G{i}_LA0_RA0" for i in range(4)],
             # 新增的 M故障 (G9-G12)
             *[f"M{i}_G0_LA0_RA0" for i in range(1, 5)],
             # 新增的 LA故障 (G13-G16)

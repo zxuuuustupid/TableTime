@@ -331,12 +331,13 @@ if __name__ == "__main__":
     dataset = 'BJTU-gearbox'
     # 这里的名字 FIW 会决定文件夹叫 FIW_dist，虽然内部已经是欧氏距离
     dist_map = {'FIW': None} 
-    neighbor_num = 5
+    neighbor_num = 3
     
     # 配置实验
     target_wc = 8       # 目标测试工况
     source_wcs = [1, 2, 3, 4, 5, 7, 9]  # 源工况
-    target_n_shots = 5  # 目标工况混入几个样本
+    target_n_shots = 3
+    # 目标工况混入几个样本
     
     print(f"\n{'='*60}")
     print(f"🚀 实验开始: Source={source_wcs} + Target=WC{target_wc}({target_n_shots} shot)")
