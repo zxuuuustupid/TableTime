@@ -79,7 +79,28 @@ class MultiClassDataGenerator:
                         all_train_x.append(train_x)
                         all_valid_x.append(valid_x)
                         
-                        label_str = f"G{label_idx}"
+                        import re # 记得在文件最开头 import re，或者直接写在这里也行
+                    
+                        if "LA" in fault_type and "M0_G0" in fault_type: 
+                            # 匹配 M0_G0_LA{i}_RA0 -> G13-G16
+                            # 逻辑：LA1->13, LA2->14... (12 + i)
+                            idx_match = re.search(r"LA(\d+)", fault_type)
+                            if idx_match and 1 <= int(idx_match.group(1)) <= 4:
+                                label_str = f"G{12 + int(idx_match.group(1))}"
+                            else:
+                                label_str = f"G{label_idx}" # 匹配不到按默认
+                                
+                        elif "M" in fault_type and "G0_LA0" in fault_type and "M0" not in fault_type:
+                            # 匹配 M{i}_G0_LA0_RA0 -> G9-G12
+                            # 逻辑：M1->9, M2->10... (8 + i)
+                            idx_match = re.search(r"M(\d+)", fault_type)
+                            if idx_match and 1 <= int(idx_match.group(1)) <= 4:
+                                label_str = f"G{8 + int(idx_match.group(1))}"
+                            else:
+                                label_str = f"G{label_idx}" # 匹配不到按默认
+                        else:
+                            # 其他情况 (比如 G0-G8)
+                            label_str = f"G{label_idx}"
                         all_train_y.extend([label_str] * self.train_per_class)
                         all_valid_y.extend([label_str] * self.valid_per_class)
                         
@@ -109,7 +130,7 @@ class MultiClassDataGenerator:
             np.save(os.path.join(output_dir, 'y_valid.npy'), y_valid)
 
             print(f"\n--- 数据处理完成: {os.path.basename(output_dir)} ---")
-            print(f"X_train 形状: {X_train.shape} | X_valid 形状: {X_valid.shape}")
+            print(f"X_train 形状: {X_train.shape} | X_valid 形状: {X_valid.shape}|y_train 形状: {y_train.shape}|y_valid 形状: {y_valid.shape}")
 
 # if __name__ == "__main__":
 #     # 基础配置，删掉或忽略速度和负载的硬编码
@@ -140,7 +161,16 @@ if __name__ == "__main__":
     # 基础配置
     CONFIG = {
         "base_path": "F:/Project/TripletLoss/BJTU-RAO Bogie Datasets/Data/BJTU_RAO_Bogie_Datasets/",
-        "fault_types": [f"M0_G{i}_LA0_RA0" for i in [0,1,2,3]], 
+        # "fault_types": [f"M0_G{i}_LA0_RA0" for i in [0,1,2,3,4,5,6,7,8]], 
+        
+        "fault_types": [
+            # 原有的 G0-G8
+            *[f"M0_G{i}_LA0_RA0" for i in range(9)],
+            # 新增的 M故障 (G9-G12)
+            *[f"M{i}_G0_LA0_RA0" for i in range(1, 5)],
+            # 新增的 LA故障 (G13-G16)
+            *[f"M0_G0_LA{i}_RA0" for i in range(1, 5)]
+        ],
         "window": {"size": 2048, "overlap_rate": 0.0},
         "split": {
             "train_per_class": 60,  # 默认值
