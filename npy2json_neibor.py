@@ -194,7 +194,7 @@ if __name__ == "__main__":
     # ]
     
     all_train_scenarios = [
-        [1, 2, 3,4]
+        [1, 2, 8]
     ]
     
     # 用于收集所有实验结果的列表
@@ -202,7 +202,8 @@ if __name__ == "__main__":
     
     # --- 开始大循环 ---
     for train_nums in all_train_scenarios:
-        test_wcs = [wc for wc in all_wcs if wc not in train_nums]
+        # test_wcs = [wc for wc in all_wcs if wc not in train_nums]
+        test_wcs = [3,4,5,6,7,8,9]
         
         print(f"\n{'='*60}")
         print(f"🚀 大实验启动：训练集组合 = {train_nums}")
