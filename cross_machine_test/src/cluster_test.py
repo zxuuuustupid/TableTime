@@ -11,91 +11,91 @@ from scipy import stats  # 增加这一行
 # 1. 算法部分 (完全复用你提供的代码)
 # =========================================================
 
-def extract_advanced_features(time_series, fs=1000):
-    if time_series.shape[0] < time_series.shape[1]: 
-        time_series = time_series.T
-    n_channels = time_series.shape[1]
-    all_features = []
-    
-    for ch in range(n_channels):
-        sig = time_series[:, ch]
-        # 0. 基础去均值
-        sig = sig - np.mean(sig)
-        rms = np.sqrt(np.mean(sig**2)) + 1e-10
-        
-        # 1. 【核心：无量纲时域特征】—— 这些指标跨机器非常鲁棒
-        # 它们衡量的是“有多像故障”，而不是“振动有多大”
-        # kur = signal.kurtosis(sig)           # 峭度（反映冲击）
-        # skw = signal.skew(sig)
-        # # 偏度（反映不对称）
-        kur = stats.kurtosis(sig)           # 峭度（反映冲击）
-        skw = stats.skew(sig)               # 偏度（反映不对
-        crest = np.max(np.abs(sig)) / rms    # 峰值因子
-        shape = rms / (np.mean(np.abs(sig)) + 1e-10) # 波形因子
-        impulse = np.max(np.abs(sig)) / (np.mean(np.abs(sig)) + 1e-10) # 脉冲因子
-        
-        # 2. 【核心：频谱能量分布】—— 关注能量分布在哪些频段
-        f, Pxx = signal.welch(sig, fs=fs, nperseg=256)
-        # 将频谱平分成 8 个频段，计算每个频段占总能量的比例
-        Pxx_norm = Pxx / (np.sum(Pxx) + 1e-10)
-        bands = np.array_split(Pxx_norm, 8)
-        band_energies = [np.sum(b) for b in bands]
-        
-        all_features.extend([kur, skw, crest, shape, impulse] + band_energies)
-        
-    return np.array(all_features)
-
-
 # def extract_advanced_features(time_series, fs=1000):
 #     if time_series.shape[0] < time_series.shape[1]: 
 #         time_series = time_series.T
-        
 #     n_channels = time_series.shape[1]
 #     all_features = []
     
 #     for ch in range(n_channels):
-#         signal_data = time_series[:, ch]
+#         sig = time_series[:, ch]
+#         # 0. 基础去均值
+#         sig = sig - np.mean(sig)
+#         rms = np.sqrt(np.mean(sig**2)) + 1e-10
         
-#         # === [核心修改：在此处加入信号标准化] ===
-#         # 这一行能消除不同机器传感器增益、功率导致的幅值巨大差异
-#         signal_data = (signal_data - np.mean(signal_data)) / (np.std(signal_data) + 1e-10)
-#         # =====================================
+#         # 1. 【核心：无量纲时域特征】—— 这些指标跨机器非常鲁棒
+#         # 它们衡量的是“有多像故障”，而不是“振动有多大”
+#         # kur = signal.kurtosis(sig)           # 峭度（反映冲击）
+#         # skw = signal.skew(sig)
+#         # # 偏度（反映不对称）
+#         kur = stats.kurtosis(sig)           # 峭度（反映冲击）
+#         skw = stats.skew(sig)               # 偏度（反映不对
+#         crest = np.max(np.abs(sig)) / rms    # 峰值因子
+#         shape = rms / (np.mean(np.abs(sig)) + 1e-10) # 波形因子
+#         impulse = np.max(np.abs(sig)) / (np.mean(np.abs(sig)) + 1e-10) # 脉冲因子
+        
+#         # 2. 【核心：频谱能量分布】—— 关注能量分布在哪些频段
+#         f, Pxx = signal.welch(sig, fs=fs, nperseg=256)
+#         # 将频谱平分成 8 个频段，计算每个频段占总能量的比例
+#         Pxx_norm = Pxx / (np.sum(Pxx) + 1e-10)
+#         bands = np.array_split(Pxx_norm, 8)
+#         band_energies = [np.sum(b) for b in bands]
+        
+#         all_features.extend([kur, skw, crest, shape, impulse] + band_energies)
+        
+#     return np.array(all_features)
 
-#         # 随后的时域特征（均值、标准差、最大值等）将基于标准化后的信号计算
-#         time_features = [
-#             np.mean(signal_data), # 标准化后该值趋于0
-#             np.std(signal_data),  # 标准化后该值趋于1
-#             np.max(np.abs(signal_data)),
-#             # ... 其余代码不变
-#             np.max(signal_data) - np.min(signal_data),
-#             np.sqrt(np.mean(signal_data**2)),
-#             np.max(np.abs(signal_data)) / (np.sqrt(np.mean(signal_data**2)) + 1e-10),
-#             np.sum(signal_data**4) / (np.sum(signal_data**2)**2 + 1e-10),
-#             np.sum((signal_data - np.mean(signal_data))**3) / (len(signal_data) * np.std(signal_data)**3 + 1e-10)
-#         ]
+
+def extract_advanced_features(time_series, fs=1000):
+    if time_series.shape[0] < time_series.shape[1]: 
+        time_series = time_series.T
         
-#         # 频域特征
-#         f, Pxx = signal.welch(signal_data, fs=fs, nperseg=min(1024, len(signal_data)), noverlap=512)
-#         dominant_freq = f[np.argmax(Pxx)]
-#         spectral_centroid = np.sum(f * Pxx) / (np.sum(Pxx) + 1e-10)
-        
-#         freq_features = [
-#             dominant_freq,
-#             spectral_centroid,
-#             np.max(Pxx),
-#             np.mean(Pxx),
-#             np.std(Pxx)
-#         ]
-        
-#         all_features.extend(time_features + freq_features)
+    n_channels = time_series.shape[1]
+    all_features = []
     
-#     correlation_features = []
-#     for i in range(n_channels):
-#         for j in range(i+1, n_channels):
-#             corr = np.corrcoef(time_series[:, i], time_series[:, j])[0, 1]
-#             correlation_features.append(corr if not np.isnan(corr) else 0)
+    for ch in range(n_channels):
+        signal_data = time_series[:, ch]
+        
+        # === [核心修改：在此处加入信号标准化] ===
+        # 这一行能消除不同机器传感器增益、功率导致的幅值巨大差异
+        signal_data = (signal_data - np.mean(signal_data)) / (np.std(signal_data) + 1e-10)
+        # =====================================
+
+        # 随后的时域特征（均值、标准差、最大值等）将基于标准化后的信号计算
+        time_features = [
+            np.mean(signal_data), # 标准化后该值趋于0
+            np.std(signal_data),  # 标准化后该值趋于1
+            np.max(np.abs(signal_data)),
+            # ... 其余代码不变
+            np.max(signal_data) - np.min(signal_data),
+            np.sqrt(np.mean(signal_data**2)),
+            np.max(np.abs(signal_data)) / (np.sqrt(np.mean(signal_data**2)) + 1e-10),
+            np.sum(signal_data**4) / (np.sum(signal_data**2)**2 + 1e-10),
+            np.sum((signal_data - np.mean(signal_data))**3) / (len(signal_data) * np.std(signal_data)**3 + 1e-10)
+        ]
+        
+        # 频域特征
+        f, Pxx = signal.welch(signal_data, fs=fs, nperseg=min(1024, len(signal_data)), noverlap=512)
+        dominant_freq = f[np.argmax(Pxx)]
+        spectral_centroid = np.sum(f * Pxx) / (np.sum(Pxx) + 1e-10)
+        
+        freq_features = [
+            dominant_freq,
+            spectral_centroid,
+            np.max(Pxx),
+            np.mean(Pxx),
+            np.std(Pxx)
+        ]
+        
+        all_features.extend(time_features + freq_features)
+    
+    correlation_features = []
+    for i in range(n_channels):
+        for j in range(i+1, n_channels):
+            corr = np.corrcoef(time_series[:, i], time_series[:, j])[0, 1]
+            correlation_features.append(corr if not np.isnan(corr) else 0)
             
-#     return np.concatenate([np.array(all_features), np.array(correlation_features)])
+    return np.concatenate([np.array(all_features), np.array(correlation_features)])
 
 def find_nearest_neighbors_weighted_feature(train_data, train_labels, test_data, num_neighbors):
     print("Extracting advanced features...")
@@ -198,7 +198,7 @@ def run_retrieval():
     ROOT = "cross_machine_test"
     DATA_ROOT = os.path.join(ROOT, "data")
     INDEX_ROOT = os.path.join(ROOT, "data_index")
-    NUM_NEIGHBORS = 3
+    NUM_NEIGHBORS = 5
     
     # 1. 定义源（训练集/检索库）
     # 假设使用 BJTU WC1 作为源
@@ -216,11 +216,13 @@ def run_retrieval():
     # 2. 定义所有需要查询的目标（测试集）
     # 包括 BJTU 自己的验证集和 Ottawa 的验证集
     test_tasks = [
-        {"name": "BJTU_WC1", "path": "BJTU_leftaxlebox/WC1"},
-        {"name": "Ottawa_A", "path": "Ottawa/A"},
-        {"name": "Ottawa_B", "path": "Ottawa/B"},
-        {"name": "Ottawa_C", "path": "Ottawa/C"},
-        {"name": "Ottawa_D", "path": "Ottawa/D"},
+        {"name": "BJTU_leftaxlebox_WC1", "path": "BJTU_leftaxlebox/WC1"},
+        {"name": "BJTU_gearbox_WC1", "path": "BJTU_gearbox/WC1"},
+        # {"name": "Ottawa_A", "path": "Ottawa/A"},
+        # {"name": "Ottawa_B", "path": "Ottawa/B"},
+        # {"name": "Ottawa_C", "path": "Ottawa/C"},
+        # {"name": "Ottawa_D", "path": "Ottawa/D"},
+        # {"name": "swjtu",    "path": "swjtu/WC1"}
     ]
     
     for task in test_tasks:

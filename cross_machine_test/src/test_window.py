@@ -16,12 +16,19 @@ class MultiClassDataGenerator:
         self.total_per_file = self.train_per_class + self.valid_per_class
 
     def _extract_sequential_segments(self, csv_path):
-        """读取CSV，只取第一列，去掉表头"""
+        """读取数据，自动识别 CSV 或 Excel"""
         if not os.path.exists(csv_path):
             raise FileNotFoundError(f"数据文件未找到: {csv_path}")
             
-        # Pandas 默认第一行为 Header 并跳过，iloc[:, 0] 取第一列
-        df = pd.read_csv(csv_path)
+        # --- 修改这里：增加判断 ---
+        if csv_path.endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(csv_path)
+        else:
+            df = pd.read_csv(csv_path)
+        # -----------------------
+        
+        data = df.iloc[:, 0].values.reshape(-1, 1)
+        # ... 后续逻辑不变
         data = df.iloc[:, 0].values.reshape(-1, 1)
         
         num_rows = data.shape[0]
@@ -51,17 +58,21 @@ class MultiClassDataGenerator:
 
         for label_idx, f_type in enumerate(fault_types):
             try:
+                # --- 修改 1: 动态确定文件后缀 ---
+                ext = '.xlsx' if mode == 'swjtu' else '.csv'
+                
                 # 路径匹配逻辑
-                if mode == 'BJTU-leftaxlebox':
-                    # BJTU 路径: cross_machine_test/raw_data/BJTU-leftaxlebox/WC1/H.csv
-                    csv_path = os.path.join(base_path, condition, f"{f_type}.csv")
+                if mode == 'BJTU-leftaxlebox' or mode == 'BJTU-gearbox' or mode == 'swjtu':
+                    # --- 修改 2: 使用动态后缀 ext ---
+                    csv_path = os.path.join(base_path, condition, f"{f_type}{ext}")
+                
                 else: 
-                    # Ottawa 路径: cross_machine_test/raw_data/Ottawa/A/A-H.csv
+                    # Ottawa 路径保持原样
                     csv_path = os.path.join(base_path, condition, f"{condition}-{f_type}.csv")
 
                 all_x = self._extract_sequential_segments(csv_path)
                 
-                # 分割训练和验证
+                # 后续逻辑完全不动
                 train_x = all_x[:self.train_per_class]
                 valid_x = all_x[self.train_per_class:]
                 
@@ -114,17 +125,46 @@ if __name__ == "__main__":
             "output_dir": os.path.join(ROOT, f"data/BJTU_leftaxlebox/WC{i}")
         }
         MultiClassDataGenerator(config).process()
-
-    # 2. 处理 Ottawa (测试目标)
-    print("\n开始处理 Ottawa 数据集...")
-    for cond in ['A', 'B', 'C', 'D']:
+        
+        
+        
+        # 1. 处理 BJTU (训练源)
+    print("开始处理 BJTU 数据集...")
+    for i in BJTU_WC_LIST_NUM:
         config = {
-            "mode": "Ottawa",
-            "base_path": os.path.join(ROOT, "raw_data/Ottawa"),
-            "condition": cond,
+            "mode": "BJTU-gearbox",
+            "base_path": os.path.join(ROOT, "raw_data/BJTU-gearbox"),
+            "condition": f"WC{i}",
             "fault_types": FAULT_TYPES,
             "window": WIN_SET,
             "split": {"train_per_class": 60, "valid_per_class": 60},
-            "output_dir": os.path.join(ROOT, f"data/Ottawa/{cond}")
+            "output_dir": os.path.join(ROOT, f"data/BJTU_gearbox/WC{i}")
         }
         MultiClassDataGenerator(config).process()
+
+    # 2. 处理 Ottawa (测试目标)
+    # print("\n开始处理 Ottawa 数据集...")
+    # for cond in ['A', 'B', 'C', 'D']:
+    #     config = {
+    #         "mode": "Ottawa",
+    #         "base_path": os.path.join(ROOT, "raw_data/Ottawa"),
+    #         "condition": cond,
+    #         "fault_types": FAULT_TYPES,
+    #         "window": WIN_SET,
+    #         "split": {"train_per_class": 60, "valid_per_class": 60},
+    #         "output_dir": os.path.join(ROOT, f"data/Ottawa/{cond}")
+    #     }
+    #     MultiClassDataGenerator(config).process()
+        
+    # print("开始处理 sw 数据集...")
+    # for i in BJTU_WC_LIST_NUM:
+    #     config = {
+    #         "mode": "swjtu",
+    #         "base_path": os.path.join(ROOT, "raw_data/swjtu"),
+    #         "condition": f"WC{i}",
+    #         "fault_types": FAULT_TYPES,
+    #         "window": WIN_SET,
+    #         "split": {"train_per_class": 60, "valid_per_class": 60},
+    #         "output_dir": os.path.join(ROOT, f"data/swjtu/WC{i}")
+    #     }
+    #     MultiClassDataGenerator(config).process()
