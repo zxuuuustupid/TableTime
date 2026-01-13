@@ -156,6 +156,7 @@ class FM_PD(nn.Module):
         save_dir = os.path.join(self.base_result_path, exp_id)
         total_report_path = os.path.join(self.base_result_path, "total")
         os.makedirs(save_dir, exist_ok=True)
+        os.makedirs(total_report_path, exist_ok=True)
         
         os.makedirs(os.path.join(save_dir, 'description'), exist_ok=True)
         feature_desc_path = os.path.join(save_dir, 'description', f'{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}_{self.timestamp}_descriptions.json')

@@ -52,6 +52,7 @@ class FM_PD(nn.Module):
                  temperature,
                  top_p,
                  max_tokens,
+                 n_shots,
                 #  train_nums,
                 #  test_num,
                 #  n_sample,
@@ -93,6 +94,7 @@ class FM_PD(nn.Module):
         self.base_result_path = f'few_shot_test/result/{self.dataset}/{data_dict[encoding_style]}/{self.dist}_dist'
         # self.train_nums = train_nums
         # self.test_num = test_num
+        self.n_shots = n_shots
 
     def forward(self,train_nums=None,test_num=None,n_shots=None):
         """
@@ -197,6 +199,7 @@ class FM_PD(nn.Module):
         save_dir = os.path.join(self.base_result_path, exp_id)
         total_report_path = os.path.join(self.base_result_path, "total")
         os.makedirs(save_dir, exist_ok=True)
+        os.makedirs(total_report_path, exist_ok=True)
         
         os.makedirs(os.path.join(save_dir, 'description'), exist_ok=True)
         feature_desc_path = os.path.join(save_dir, 'description', f'{self.nei_number}_{self.encoding_style}_{self.dist}_{self.itr}_{self.llm_name}_{self.timestamp}_descriptions.json')
@@ -539,8 +542,8 @@ if __name__ == "__main__":
         llm_name=cfg['llm']['model_name'],
         temperature=cfg['llm']['temperature'],
         top_p=cfg['llm']['top_p'],
-        max_tokens=cfg['llm']['max_tokens']
-        # n_shots=cfg['experiment']['n_shots']
+        max_tokens=cfg['llm']['max_tokens'],
+        n_shots=cfg['experiment']['n_shots']
     )
 
     # 2. 定义实验计划

@@ -171,8 +171,8 @@ if __name__ == "__main__":
     import datetime # 确保导入 datetime
     
     # dataset = 'BJTU-gearbox'
-    # dataset = 'BJTU-motor'
-    dataset = 'BJTU-leftaxlebox'
+    dataset = 'BJTU-motor'
+    # dataset = 'BJTU-leftaxlebox'
     dist_map_name = 'FIW'
     dist_map = {dist_map_name: find_nearest_neighbors_weighted_feature}
     neighbor_num = 15
@@ -196,9 +196,9 @@ if __name__ == "__main__":
     # ]
     
     all_train_scenarios = [
-        [1, 2],
-        # [1,2,3,4,5],
-        [1,2,3,4,5,7,],
+        # [1, 2],
+        # # [1,2,3,4,5],
+        # [1,2,3,4,5,7,],
         [1,2,3,4,5,7,8]
     ]
     
