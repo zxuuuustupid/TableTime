@@ -8,15 +8,33 @@ import os
 def parse_llm_output(answer_string):
     """
     从 LLM 的原始输出中解析出预测标签。
-    兼容 'G3,[G1,G2...]' 或 'G3' 或 'G3, some text' 等格式。
+    兼容 'G3,[G1...]', 'CF,[CF...]', 'CF', 'Inner Fault' 等格式。
     """
-
     if not isinstance(answer_string, str):
         return None
+    
+    # 1. 去除首尾空白
+    text = answer_string.strip()
+    
+    # 2. 处理 "Prediction, [Retrieval...]" 这种情况
+    #    日志显示类似 "CF,[CF,CF...]"，我们需要逗号前的部分
+    if ',' in text:
+        text = text.split(',')[0].strip()
         
-    match = re.match(r"^(G\d+)", answer_string.strip())
+    # 3. 清理可能存在的标点符号（如模型输出了 ['CF'] 或 "CF"）
+    text = text.replace("[", "").replace("]", "").replace("'", "").replace('"', "")
+    
+    # 4. 使用更通用的正则进行提取
+    #    这里匹配：由字母、数字或下划线组成的序列 (兼容 CF, IF, G0, Label_1 等)
+    match = re.match(r"^([A-Za-z0-9_]+)", text)
+    
     if match:
         return match.group(1)
+    
+    # 如果上面的都没匹配到，且字符串不为空，可能直接返回清理后的文本
+    # (视具体标签格式而定，如果标签包含空格如 "Inner Race"，可以用下面这行)
+    # if text: return text 
+    
     return None
 
 def load_true_labels_from_json(true_labels_path):
