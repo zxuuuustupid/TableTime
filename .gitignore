@@ -36,3 +36,4 @@ result/BJTU-gearbox/DFLoader/FIW_dist/*
 result/*/DFLoader/FIW_dist/*
 few_shot_test/*
 main_muti_states_Ottawa.py
+main_muti_states_SWJTU.py

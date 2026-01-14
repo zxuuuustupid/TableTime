@@ -42,7 +42,7 @@ def generate_json(dataset):
                 json.dump(test_index,f)
 
 
-    if dataset=='Ottawa':
+    if dataset=='Ottawa' or dataset=='SWJTU':
         for work_condition in range(1,5):
             dataset_work_condition=f'{dataset}_WC{work_condition}'
             x_train=np.load(f'data/{dataset}/WC{work_condition}/X_train.npy',mmap_mode='c')
