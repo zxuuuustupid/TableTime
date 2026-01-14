@@ -157,12 +157,64 @@ from scipy.fft import fft, fftfreq
 import numpy as np
 from tqdm import tqdm
 
-# --- 1. 保持高级特征提取函数不变 ---
+# # --- 1. 保持高级特征提取函数不变 ---
+# def extract_advanced_features(time_series, fs=1000):
+#     """
+#     高级特征提取：多尺度时频特征融合
+#     """
+#     # 确保输入是 (Time, Channels) 格式
+#     if time_series.shape[0] < time_series.shape[1]: 
+#         time_series = time_series.T
+        
+#     n_channels = time_series.shape[1]
+#     all_features = []
+    
+#     for ch in range(n_channels):
+#         signal_data = time_series[:, ch]
+        
+#         # 时域特征
+#         time_features = [
+#             np.mean(signal_data),
+#             np.std(signal_data),
+#             np.max(np.abs(signal_data)),
+#             np.max(signal_data) - np.min(signal_data),
+#             np.sqrt(np.mean(signal_data**2)),
+#             np.max(np.abs(signal_data)) / (np.sqrt(np.mean(signal_data**2)) + 1e-10),
+#             np.sum(signal_data**4) / (np.sum(signal_data**2)**2 + 1e-10),
+#             np.sum((signal_data - np.mean(signal_data))**3) / (len(signal_data) * np.std(signal_data)**3 + 1e-10)
+#         ]
+        
+#         # 频域特征
+#         f, Pxx = signal.welch(signal_data, fs=fs, nperseg=min(1024, len(signal_data)), noverlap=512)
+#         dominant_freq = f[np.argmax(Pxx)]
+#         spectral_centroid = np.sum(f * Pxx) / (np.sum(Pxx) + 1e-10)
+        
+#         freq_features = [
+#             dominant_freq,
+#             spectral_centroid,
+#             np.max(Pxx),
+#             np.mean(Pxx),
+#             np.std(Pxx)
+#         ]
+        
+#         all_features.extend(time_features + freq_features)
+    
+#     # 通道相关性
+#     correlation_features = []
+#     for i in range(n_channels):
+#         for j in range(i+1, n_channels):
+#             corr = np.corrcoef(time_series[:, i], time_series[:, j])[0, 1]
+#             correlation_features.append(corr if not np.isnan(corr) else 0)
+            
+#     return np.concatenate([np.array(all_features), np.array(correlation_features)])
+
+
+# 找到原来的 extract_advanced_features 函数，全部替换为：
 def extract_advanced_features(time_series, fs=1000):
     """
-    高级特征提取：多尺度时频特征融合
+    修改版：直接提取 FFT 频谱特征 (取前 512 个频点)。
+    频谱形状对故障类型更敏感，而对工况带来的能量变化相对鲁棒。
     """
-    # 确保输入是 (Time, Channels) 格式
     if time_series.shape[0] < time_series.shape[1]: 
         time_series = time_series.T
         
@@ -170,106 +222,123 @@ def extract_advanced_features(time_series, fs=1000):
     all_features = []
     
     for ch in range(n_channels):
-        signal_data = time_series[:, ch]
+        sig = time_series[:, ch]
         
-        # 时域特征
-        time_features = [
-            np.mean(signal_data),
-            np.std(signal_data),
-            np.max(np.abs(signal_data)),
-            np.max(signal_data) - np.min(signal_data),
-            np.sqrt(np.mean(signal_data**2)),
-            np.max(np.abs(signal_data)) / (np.sqrt(np.mean(signal_data**2)) + 1e-10),
-            np.sum(signal_data**4) / (np.sum(signal_data**2)**2 + 1e-10),
-            np.sum((signal_data - np.mean(signal_data))**3) / (len(signal_data) * np.std(signal_data)**3 + 1e-10)
-        ]
+        # 1. 简单的去均值
+        sig = sig - np.mean(sig)
         
-        # 频域特征
-        f, Pxx = signal.welch(signal_data, fs=fs, nperseg=min(1024, len(signal_data)), noverlap=512)
-        dominant_freq = f[np.argmax(Pxx)]
-        spectral_centroid = np.sum(f * Pxx) / (np.sum(Pxx) + 1e-10)
+        # 2. 计算 FFT
+        fft_vals = np.abs(fft(sig))
         
-        freq_features = [
-            dominant_freq,
-            spectral_centroid,
-            np.max(Pxx),
-            np.mean(Pxx),
-            np.std(Pxx)
-        ]
+        # 3. 只取前一半 (正频率部分)，通常取前 512 或 1024 个点
+        # 假设输入长度是 2048，取前 512 个点足以涵盖主要故障频段
+        fft_half = fft_vals[:512] 
         
-        all_features.extend(time_features + freq_features)
-    
-    # 通道相关性
-    correlation_features = []
-    for i in range(n_channels):
-        for j in range(i+1, n_channels):
-            corr = np.corrcoef(time_series[:, i], time_series[:, j])[0, 1]
-            correlation_features.append(corr if not np.isnan(corr) else 0)
+        # 4. [关键] 归一化！
+        # 除以最大值，消除转速带来的绝对能量差异，只保留“形状”
+        fft_norm = fft_half / (np.max(fft_half) + 1e-10)
+        
+        all_features.extend(fft_norm)
             
-    return np.concatenate([np.array(all_features), np.array(correlation_features)])
+    return np.array(all_features)
 
 # --- 2. 修改后的检索函数（增加了 train_labels）---
-def find_nearest_neighbors_weighted_feature(train_data, train_labels, test_data, num_neighbors):
-    """
-    使用 [高级特征] + [有监督自适应加权] 进行近邻搜索。
-    利用标签信息计算类内方差，给稳定的特征更高的权重。
-    """
+# def find_nearest_neighbors_weighted_feature(train_data, train_labels, test_data, num_neighbors):
+#     """
+#     使用 [高级特征] + [有监督自适应加权] 进行近邻搜索。
+#     利用标签信息计算类内方差，给稳定的特征更高的权重。
+#     """
     
-    # --- 步骤 1: 批量提取特征 ---
-    print("Extracting advanced features...")
+#     # --- 步骤 1: 批量提取特征 ---
+#     print("Extracting advanced features...")
+#     train_features = np.array([extract_advanced_features(seq) for seq in tqdm(train_data, desc="Train Feat")])
+#     test_features = np.array([extract_advanced_features(seq) for seq in tqdm(test_data, desc="Test Feat")])
+
+#     # --- 步骤 2: 特征标准化 ---
+#     scaler = StandardScaler()
+#     train_features_scaled = scaler.fit_transform(train_features)
+#     test_features_scaled = scaler.transform(test_features)
+    
+#     # --- 步骤 3: 计算特征权重 (这是加了标签后的核心提升) ---
+#     print("Calculating supervised feature weights...")
+#     unique_classes = np.unique(train_labels)
+#     n_features = train_features_scaled.shape[1]
+    
+#     # 初始化权重累加器
+#     feature_weights = np.zeros(n_features)
+    
+#     # 对每个类别，计算特征的稳定性（方差的倒数）
+#     for label in unique_classes:
+#         # 找到属于该类的样本
+#         class_mask = (train_labels == label)
+#         class_data = train_features_scaled[class_mask]
+        
+#         if len(class_data) > 1:
+#             # 计算类内方差
+#             class_var = np.var(class_data, axis=0)
+#             # 方差越小，特征越重要。加 1e-5 防止除以0
+#             weight = 1.0 / (class_var + 1e-5)
+#             feature_weights += weight
+    
+#     # 取平均并归一化权重到 [0, 1]
+#     feature_weights = feature_weights / len(unique_classes)
+#     feature_weights = feature_weights / (np.max(feature_weights) + 1e-10)
+    
+#     # 应用权重：重要的特征被放大，噪声特征被缩小
+#     print("Applying feature weights...")
+#     train_weighted = train_features_scaled * feature_weights
+#     test_weighted = test_features_scaled * feature_weights
+    
+#     # --- 步骤 4: 最近邻搜索 ---
+#     print(f"Searching for {num_neighbors} nearest neighbors in weighted space...")
+#     nbrs = NearestNeighbors(n_neighbors=num_neighbors, algorithm='auto', metric='euclidean', n_jobs=-1)
+#     nbrs.fit(train_weighted)
+    
+#     distances, indices = nbrs.kneighbors(test_weighted)
+
+#     # --- 步骤 5: 格式化输出 ---
+#     results = []
+#     for test_index in range(len(test_data)):
+#         results.append({
+#             "test_index": test_index, 
+#             "neighbors": indices[test_index].tolist()
+#         })
+
+#     return results
+
+
+def find_nearest_neighbors_weighted_feature(train_data, train_labels, test_data, num_neighbors):
+    print("Extracting FFT features...")
+    # ... (特征提取部分代码不用动) ...
     train_features = np.array([extract_advanced_features(seq) for seq in tqdm(train_data, desc="Train Feat")])
     test_features = np.array([extract_advanced_features(seq) for seq in tqdm(test_data, desc="Test Feat")])
 
-    # --- 步骤 2: 特征标准化 ---
+    # --- 1. 仍然保留 StandardScaler，有助于 Cosine 计算 ---
     scaler = StandardScaler()
     train_features_scaled = scaler.fit_transform(train_features)
     test_features_scaled = scaler.transform(test_features)
     
-    # --- 步骤 3: 计算特征权重 (这是加了标签后的核心提升) ---
-    print("Calculating supervised feature weights...")
-    unique_classes = np.unique(train_labels)
-    n_features = train_features_scaled.shape[1]
+    # --- 2. 权重全为 1 (不加权) ---
+    print("Applying simplified weights (Ones)...")
+    feature_weights = np.ones(train_features_scaled.shape[1])
     
-    # 初始化权重累加器
-    feature_weights = np.zeros(n_features)
-    
-    # 对每个类别，计算特征的稳定性（方差的倒数）
-    for label in unique_classes:
-        # 找到属于该类的样本
-        class_mask = (train_labels == label)
-        class_data = train_features_scaled[class_mask]
-        
-        if len(class_data) > 1:
-            # 计算类内方差
-            class_var = np.var(class_data, axis=0)
-            # 方差越小，特征越重要。加 1e-5 防止除以0
-            weight = 1.0 / (class_var + 1e-5)
-            feature_weights += weight
-    
-    # 取平均并归一化权重到 [0, 1]
-    feature_weights = feature_weights / len(unique_classes)
-    feature_weights = feature_weights / (np.max(feature_weights) + 1e-10)
-    
-    # 应用权重：重要的特征被放大，噪声特征被缩小
-    print("Applying feature weights...")
     train_weighted = train_features_scaled * feature_weights
     test_weighted = test_features_scaled * feature_weights
     
-    # --- 步骤 4: 最近邻搜索 ---
-    print(f"Searching for {num_neighbors} nearest neighbors in weighted space...")
-    nbrs = NearestNeighbors(n_neighbors=num_neighbors, algorithm='auto', metric='euclidean', n_jobs=-1)
+    # --- 3. [关键修改] 改为 Cosine 距离 ---
+    print(f"Searching for {num_neighbors} nearest neighbors (Cosine)...")
+    # metric='cosine' 是跨工况/跨幅值差异的神器
+    nbrs = NearestNeighbors(n_neighbors=num_neighbors, metric='cosine', n_jobs=-1)
     nbrs.fit(train_weighted)
     
     distances, indices = nbrs.kneighbors(test_weighted)
 
-    # --- 步骤 5: 格式化输出 ---
     results = []
     for test_index in range(len(test_data)):
         results.append({
             "test_index": test_index, 
             "neighbors": indices[test_index].tolist()
         })
-
     return results
 
 

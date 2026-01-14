@@ -6,6 +6,21 @@ from scipy import signal
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import NearestNeighbors
 from scipy import stats  # 增加这一行
+import os
+import numpy as np
+import json
+from dtaidistance import dtw_ndim
+from tqdm import tqdm
+from scipy.spatial.distance import cdist
+from scipy.stats import skew, kurtosis
+from scipy.fft import fft, fftfreq
+import numpy as np
+import os
+from tqdm import tqdm
+from scipy.spatial.distance import cdist
+from scipy.stats import skew, kurtosis
+from scipy.fft import fft
+from sklearn.decomposition import PCA
 
 # =========================================================
 # 1. 算法部分 (完全复用你提供的代码)
@@ -46,7 +61,78 @@ from scipy import stats  # 增加这一行
 #     return np.array(all_features)
 
 
+# def extract_advanced_features(time_series, fs=1000):
+#     if time_series.shape[0] < time_series.shape[1]: 
+#         time_series = time_series.T
+        
+#     n_channels = time_series.shape[1]
+#     all_features = []
+    
+#     for ch in range(n_channels):
+#         signal_data = time_series[:, ch]
+        
+#         # === [核心修改：在此处加入信号标准化] ===
+#         # 这一行能消除不同机器传感器增益、功率导致的幅值巨大差异
+#         # --- 修改前 ---
+# # signal_data = (signal_data - np.mean(signal_data)) / (np.std(signal_data) + 1e-10)
+
+#         # --- 修改后 (保留一部分幅值差异，同时消除增益偏移) ---
+#         # 使用全局平均标准差的缩放，或者只除以标准差的对数
+#         std_val = np.std(signal_data)
+#         signal_data = (signal_data - np.mean(signal_data)) / (np.log1p(std_val) + 1.0)
+#         # =====================================
+
+#         # 随后的时域特征（均值、标准差、最大值等）将基于标准化后的信号计算
+#         time_features = [
+#             np.mean(signal_data), # 标准化后该值趋于0
+#             np.std(signal_data),  # 标准化后该值趋于1
+#             np.max(np.abs(signal_data)),
+#             # ... 其余代码不变
+#             np.max(signal_data) - np.min(signal_data),
+#             np.sqrt(np.mean(signal_data**2)),
+#             np.max(np.abs(signal_data)) / (np.sqrt(np.mean(signal_data**2)) + 1e-10),
+#             np.sum(signal_data**4) / (np.sum(signal_data**2)**2 + 1e-10),
+#             np.sum((signal_data - np.mean(signal_data))**3) / (len(signal_data) * np.std(signal_data)**3 + 1e-10)
+#         ]
+        
+#         # 频域特征
+#         f, Pxx = signal.welch(signal_data, fs=fs, nperseg=min(1024, len(signal_data)), noverlap=512)
+#         dominant_freq = f[np.argmax(Pxx)]
+#         spectral_centroid = np.sum(f * Pxx) / (np.sum(Pxx) + 1e-10)
+        
+#         freq_features = [
+#             dominant_freq,
+#             spectral_centroid,
+#             np.max(Pxx),
+#             np.mean(Pxx),
+#             np.std(Pxx)
+#         ]
+        
+#         all_features.extend(time_features + freq_features)
+    
+#     correlation_features = []
+#     for i in range(n_channels):
+#         for j in range(i+1, n_channels):
+#             corr = np.corrcoef(time_series[:, i], time_series[:, j])[0, 1]
+#             correlation_features.append(corr if not np.isnan(corr) else 0)
+
+#         # --- 在函数 return 之前插入 ---
+#     # 对始终为正的统计特征进行对数处理，减少离群值影响
+#     # 假设 features 是你最后拼接好的数组
+#     # 可以针对前几个时域特征做处理，比如：
+#     all_features = np.array(all_features)
+#     # 对 峭度、脉冲因子、峰值因子等(通常是大于0的)取对数
+#     # 假设索引 0, 2, 5, 6, 7 是这些特征：
+#     indices_to_log = [2, 5, 6, 7] 
+#     all_features[indices_to_log] = np.log1p(np.abs(all_features[indices_to_log]))
+            
+#     return np.concatenate([np.array(all_features), np.array(correlation_features)])
+
 def extract_advanced_features(time_series, fs=1000):
+    """
+    修改版：直接提取 FFT 频谱特征 (取前 512 个频点)。
+    频谱形状对故障类型更敏感，而对工况带来的能量变化相对鲁棒。
+    """
     if time_series.shape[0] < time_series.shape[1]: 
         time_series = time_series.T
         
@@ -54,93 +140,89 @@ def extract_advanced_features(time_series, fs=1000):
     all_features = []
     
     for ch in range(n_channels):
-        signal_data = time_series[:, ch]
+        sig = time_series[:, ch]
         
-        # === [核心修改：在此处加入信号标准化] ===
-        # 这一行能消除不同机器传感器增益、功率导致的幅值巨大差异
-        # --- 修改前 ---
-# signal_data = (signal_data - np.mean(signal_data)) / (np.std(signal_data) + 1e-10)
-
-        # --- 修改后 (保留一部分幅值差异，同时消除增益偏移) ---
-        # 使用全局平均标准差的缩放，或者只除以标准差的对数
-        std_val = np.std(signal_data)
-        signal_data = (signal_data - np.mean(signal_data)) / (np.log1p(std_val) + 1.0)
-        # =====================================
-
-        # 随后的时域特征（均值、标准差、最大值等）将基于标准化后的信号计算
-        time_features = [
-            np.mean(signal_data), # 标准化后该值趋于0
-            np.std(signal_data),  # 标准化后该值趋于1
-            np.max(np.abs(signal_data)),
-            # ... 其余代码不变
-            np.max(signal_data) - np.min(signal_data),
-            np.sqrt(np.mean(signal_data**2)),
-            np.max(np.abs(signal_data)) / (np.sqrt(np.mean(signal_data**2)) + 1e-10),
-            np.sum(signal_data**4) / (np.sum(signal_data**2)**2 + 1e-10),
-            np.sum((signal_data - np.mean(signal_data))**3) / (len(signal_data) * np.std(signal_data)**3 + 1e-10)
-        ]
+        # 1. 简单的去均值
+        sig = sig - np.mean(sig)
         
-        # 频域特征
-        f, Pxx = signal.welch(signal_data, fs=fs, nperseg=min(1024, len(signal_data)), noverlap=512)
-        dominant_freq = f[np.argmax(Pxx)]
-        spectral_centroid = np.sum(f * Pxx) / (np.sum(Pxx) + 1e-10)
+        # 2. 计算 FFT
+        fft_vals = np.abs(fft(sig))
         
-        freq_features = [
-            dominant_freq,
-            spectral_centroid,
-            np.max(Pxx),
-            np.mean(Pxx),
-            np.std(Pxx)
-        ]
+        # 3. 只取前一半 (正频率部分)，通常取前 512 或 1024 个点
+        # 假设输入长度是 2048，取前 512 个点足以涵盖主要故障频段
+        fft_half = fft_vals[:512] 
         
-        all_features.extend(time_features + freq_features)
-    
-    correlation_features = []
-    for i in range(n_channels):
-        for j in range(i+1, n_channels):
-            corr = np.corrcoef(time_series[:, i], time_series[:, j])[0, 1]
-            correlation_features.append(corr if not np.isnan(corr) else 0)
-
-        # --- 在函数 return 之前插入 ---
-    # 对始终为正的统计特征进行对数处理，减少离群值影响
-    # 假设 features 是你最后拼接好的数组
-    # 可以针对前几个时域特征做处理，比如：
-    all_features = np.array(all_features)
-    # 对 峭度、脉冲因子、峰值因子等(通常是大于0的)取对数
-    # 假设索引 0, 2, 5, 6, 7 是这些特征：
-    indices_to_log = [2, 5, 6, 7] 
-    all_features[indices_to_log] = np.log1p(np.abs(all_features[indices_to_log]))
+        # 4. [关键] 归一化！
+        # 除以最大值，消除转速带来的绝对能量差异，只保留“形状”
+        fft_norm = fft_half / (np.max(fft_half) + 1e-10)
+        
+        all_features.extend(fft_norm)
             
-    return np.concatenate([np.array(all_features), np.array(correlation_features)])
+    return np.array(all_features)
 
+# def find_nearest_neighbors_weighted_feature(train_data, train_labels, test_data, num_neighbors):
+#     print("Extracting features...")
+#     train_features = np.array([extract_advanced_features(seq) for seq in tqdm(train_data, desc="Train Feat")])
+#     test_features = np.array([extract_advanced_features(seq) for seq in tqdm(test_data, desc="Test Feat")])
+
+#     # --- 1. 统一标准化（必须） ---
+#     scaler = StandardScaler()
+#     train_features_scaled = scaler.fit_transform(train_features)
+#     test_features_scaled = scaler.transform(test_features)
+    
+#     # --- 2. 核心改动：放弃复杂的权重，回归本质 ---
+#     # 在多工况下，Fisher Score 往往会失效。我们改用“方差平滑权重”
+#     # 只压低那些完全是噪声（方差极大且无规律）的特征
+#     feat_std = np.std(train_features_scaled, axis=0)
+#     feature_weights = 1.0 / (feat_std + 0.5)  # 简单的倒数平滑
+#     feature_weights = feature_weights / np.max(feature_weights) 
+
+#     # 如果你怀疑权重还是有问题，可以直接强制所有权重为 1：
+#     # feature_weights = np.ones(train_features_scaled.shape[1]) 
+    
+#     train_weighted = train_features_scaled * feature_weights
+#     test_weighted = test_features_scaled * feature_weights
+    
+#     # --- 3. 核心改动：改回欧氏距离 ---
+#     # 当使用 StandardScaler 后，数据中心在 0 点。
+#     # 余弦距离对中心点附近的数据极其敏感，会导致识别混乱。欧氏距离在此时更稳定。
+#     print(f"Searching for {num_neighbors} neighbors using Euclidean distance...")
+#     nbrs = NearestNeighbors(n_neighbors=num_neighbors, metric='euclidean', n_jobs=-1)
+#     nbrs.fit(train_weighted)
+    
+#     distances, indices = nbrs.kneighbors(test_weighted)
+
+#     results = []
+#     for test_index in range(len(test_data)):
+#         results.append({
+#             "test_index": test_index, 
+#             "neighbors": indices[test_index].tolist()
+#         })
+#     return results, train_weighted, test_weighted
+    
+    
 def find_nearest_neighbors_weighted_feature(train_data, train_labels, test_data, num_neighbors):
-    print("Extracting features...")
+    print("Extracting FFT features...")
+    # ... (特征提取部分代码不用动) ...
     train_features = np.array([extract_advanced_features(seq) for seq in tqdm(train_data, desc="Train Feat")])
     test_features = np.array([extract_advanced_features(seq) for seq in tqdm(test_data, desc="Test Feat")])
 
-    # --- 1. 统一标准化（必须） ---
+    # --- 1. 仍然保留 StandardScaler，有助于 Cosine 计算 ---
     scaler = StandardScaler()
     train_features_scaled = scaler.fit_transform(train_features)
     test_features_scaled = scaler.transform(test_features)
     
-    # --- 2. 核心改动：放弃复杂的权重，回归本质 ---
-    # 在多工况下，Fisher Score 往往会失效。我们改用“方差平滑权重”
-    # 只压低那些完全是噪声（方差极大且无规律）的特征
-    feat_std = np.std(train_features_scaled, axis=0)
-    feature_weights = 1.0 / (feat_std + 0.5)  # 简单的倒数平滑
-    feature_weights = feature_weights / np.max(feature_weights) 
-
-    # 如果你怀疑权重还是有问题，可以直接强制所有权重为 1：
-    # feature_weights = np.ones(train_features_scaled.shape[1]) 
+    # --- 2. 权重全为 1 (不加权) ---
+    print("Applying simplified weights (Ones)...")
+    feature_weights = np.ones(train_features_scaled.shape[1])
     
     train_weighted = train_features_scaled * feature_weights
     test_weighted = test_features_scaled * feature_weights
     
-    # --- 3. 核心改动：改回欧氏距离 ---
-    # 当使用 StandardScaler 后，数据中心在 0 点。
-    # 余弦距离对中心点附近的数据极其敏感，会导致识别混乱。欧氏距离在此时更稳定。
-    print(f"Searching for {num_neighbors} neighbors using Euclidean distance...")
-    nbrs = NearestNeighbors(n_neighbors=num_neighbors, metric='euclidean', n_jobs=-1)
+    # --- 3. [关键修改] 改为 Cosine 距离 ---
+    print(f"Searching for {num_neighbors} nearest neighbors (Cosine)...")
+    # metric='cosine' 是跨工况/跨幅值差异的神器
+    nbrs = NearestNeighbors(n_neighbors=num_neighbors, metric='cosine', n_jobs=-1)
     nbrs.fit(train_weighted)
     
     distances, indices = nbrs.kneighbors(test_weighted)
@@ -151,48 +233,48 @@ def find_nearest_neighbors_weighted_feature(train_data, train_labels, test_data,
             "test_index": test_index, 
             "neighbors": indices[test_index].tolist()
         })
-    return results, train_weighted, test_weighted
+    return results
     
+# def visualize_results(X_train_raw, X_test_raw, train_feat_w, test_feat_w, y_train, y_test, neighbor_results):
+# def visualize_results(X_train_raw, X_test_raw, y_train, y_test, neighbor_results):
+#     import matplotlib.pyplot as plt
+#     from sklearn.manifold import TSNE
     
-def visualize_results(X_train_raw, X_test_raw, train_feat_w, test_feat_w, y_train, y_test, neighbor_results):
-    import matplotlib.pyplot as plt
-    from sklearn.manifold import TSNE
+#     # 1. 空间特征分布图 (t-SNE)
+#     print("正在生成空间分布图 (t-SNE)...")
+#     tsne = TSNE(n_components=2, init='pca', random_state=42)
+#     all_feats = np.vstack([train_feat_w, test_feat_w])
+#     all_2d = tsne.fit_transform(all_feats)
     
-    # 1. 空间特征分布图 (t-SNE)
-    print("正在生成空间分布图 (t-SNE)...")
-    tsne = TSNE(n_components=2, init='pca', random_state=42)
-    all_feats = np.vstack([train_feat_w, test_feat_w])
-    all_2d = tsne.fit_transform(all_feats)
-    
-    train_2d = all_2d[:len(train_feat_w)]
-    test_2d = all_2d[len(train_feat_w):]
+#     train_2d = all_2d[:len(train_feat_w)]
+#     test_2d = all_2d[len(train_feat_w):]
 
-    plt.figure(figsize=(12, 5))
-    plt.subplot(1, 2, 1)
-    # 绘制训练集 (用空心圆表示，颜色区分故障)
-    for lbl in np.unique(y_train):
-        idx = np.where(y_train == lbl)
-        plt.scatter(train_2d[idx, 0], train_2d[idx, 1], label=f'Train-{lbl}', alpha=0.3, marker='o')
-    # 绘制测试集 (用星号表示，颜色区分故障)
-    for lbl in np.unique(y_test):
-        idx = np.where(y_test == lbl)
-        plt.scatter(test_2d[idx, 0], test_2d[idx, 1], label=f'Test-{lbl}', marker='x', edgecolors='black')
-    plt.title("Spatial Feature Distribution (Weighted)")
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+#     plt.figure(figsize=(12, 5))
+#     plt.subplot(1, 2, 1)
+#     # 绘制训练集 (用空心圆表示，颜色区分故障)
+#     for lbl in np.unique(y_train):
+#         idx = np.where(y_train == lbl)
+#         plt.scatter(train_2d[idx, 0], train_2d[idx, 1], label=f'Train-{lbl}', alpha=0.3, marker='o')
+#     # 绘制测试集 (用星号表示，颜色区分故障)
+#     for lbl in np.unique(y_test):
+#         idx = np.where(y_test == lbl)
+#         plt.scatter(test_2d[idx, 0], test_2d[idx, 1], label=f'Test-{lbl}', marker='x', edgecolors='black')
+#     plt.title("Spatial Feature Distribution (Weighted)")
+#     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
 
-    # 2. 折线图对比 (取测试集第1个样本及其最近邻)
-    plt.subplot(1, 2, 2)
-    test_idx = 0 
-    nei_idx = neighbor_results[test_idx]['neighbors'][0] # 最近的一个
+#     # 2. 折线图对比 (取测试集第1个样本及其最近邻)
+#     plt.subplot(1, 2, 2)
+#     test_idx = 0 
+#     nei_idx = neighbor_results[test_idx]['neighbors'][0] # 最近的一个
     
-    # 这里的维度是 (1, 2048), 取 [0] 变成一维
-    plt.plot(X_test_raw[test_idx][0], label=f'Test Sample (Class: {y_test[test_idx]})', alpha=0.8)
-    plt.plot(X_train_raw[nei_idx][0], label=f'Nearest Neighbor (Class: {y_train[nei_idx]})', alpha=0.6, linestyle='--')
-    plt.title("Raw Signal Comparison (Test vs Neighbor)")
-    plt.legend()
+#     # 这里的维度是 (1, 2048), 取 [0] 变成一维
+#     plt.plot(X_test_raw[test_idx][0], label=f'Test Sample (Class: {y_test[test_idx]})', alpha=0.8)
+#     plt.plot(X_train_raw[nei_idx][0], label=f'Nearest Neighbor (Class: {y_train[nei_idx]})', alpha=0.6, linestyle='--')
+#     plt.title("Raw Signal Comparison (Test vs Neighbor)")
+#     plt.legend()
     
-    plt.tight_layout()
-    plt.show() # 只显示，不保存
+#     plt.tight_layout()
+#     plt.show() # 只显示，不保存
 
 # =========================================================
 # 2. 检索执行程序
@@ -251,7 +333,11 @@ def run_retrieval():
         X_test = np.load(test_x_path)
         
         # 执行检索算法 (取最近的 5 个邻居)
-        neighbor_results, train_feat_w, test_feat_w = find_nearest_neighbors_weighted_feature(
+        # neighbor_results, train_feat_w, test_feat_w = find_nearest_neighbors_weighted_feature(
+        #     train_data=X_train, train_labels=y_train, test_data=X_test, num_neighbors=NUM_NEIGHBORS
+        # )
+        
+        neighbor_results = find_nearest_neighbors_weighted_feature(
             train_data=X_train, train_labels=y_train, test_data=X_test, num_neighbors=NUM_NEIGHBORS
         )
         
@@ -274,8 +360,8 @@ def run_retrieval():
         # =========================
         
         # 3. [新增] 调用可视化
-        visualize_results(X_train, X_test, train_feat_w, test_feat_w, y_train, y_test, neighbor_results)
-        
+        # visualize_results(X_train, X_test, train_feat_w, test_feat_w, y_train, y_test, neighbor_results)
+        # visualize_results(X_train, X_test,  y_train, y_test, neighbor_results)
         
         # 3. 保存结果
         output_dir = os.path.join(INDEX_ROOT, task['name'])

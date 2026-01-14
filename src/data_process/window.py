@@ -115,9 +115,9 @@ if __name__ == "__main__":
     # 基础配置，删掉或忽略速度和负载的硬编码
     CONFIG = {
         "base_path": "F:/Project/TripletLoss/BJTU-RAO Bogie Datasets/Data/BJTU_RAO_Bogie_Datasets/",
-        "fault_types": [f"M0_G{i}_LA0_RA0" for i in [0,1,2,3]], # 快速生成G0-G8
+        # "fault_types": [f"M0_G{i}_LA0_RA0" for i in [0,1,2,3]], # 快速生成G0-G8
         # "fault_types": [f"M{i}_G0_LA0_RA0" for i in [0,1,2,3]], # 快速生成G0-G8
-        # "fault_types": [f"M0_G0_LA{i}_RA0" for i in [0,1,2,4]], # 快速生成G0-G8
+        "fault_types": [f"M0_G0_LA{i}_RA0" for i in [0,1,2,4]], # 快速生成G0-G8
         "window": {"size": 2048, "overlap_rate": 0.0},
         "split": {"train_per_class": 60, "valid_per_class": 60},
         "samples": [1],  # 初始值，后续循环中会修改

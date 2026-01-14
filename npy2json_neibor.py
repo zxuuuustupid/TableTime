@@ -165,41 +165,29 @@ def pipeline(dataset, train_nums, test_num, dist_map, neighbor_num):
 #     neighbor_num = 15
 #     train_work_condition_num=1
 #     test_work_condition_num=2
-#     pipeline()
+# #     pipeline()
 
 if __name__ == "__main__":
     import datetime # 确保导入 datetime
     
     # dataset = 'BJTU-gearbox'
-    dataset = 'BJTU-motor'
-    # dataset = 'BJTU-leftaxlebox'
+    # dataset = 'BJTU-motor'
+    dataset = 'BJTU-leftaxlebox'
     dist_map_name = 'FIW'
     dist_map = {dist_map_name: find_nearest_neighbors_weighted_feature}
     neighbor_num = 15
-    # all_wcs = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-    
-    all_wcs = [1, 2, 3, 4, 5, 7, 8, 9]
-    
-    # 定义训练场景
-    # all_train_scenarios = [
-    #     [1, 4],
-    #     [1, 4, 7],
-    #     [1, 2, 3, 4, 6],
-    #     [1, 2, 3, 4, 5, 6, 7]
-    # ]
-    
-    # all_train_scenarios = [
-    #     [1, 2],
-    #     [1, 2, 3],
-    #     [1, 2, 3, 4, 5],
-    #     [1, 2, 3, 4, 5, 6, 7]
-    # ]
-    
+    all_wcs = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
     all_train_scenarios = [
-        # [1, 2],
-        # # [1,2,3,4,5],
-        # [1,2,3,4,5,7,],
-        [1,2,3,4,5,7,8]
+        [1],
+        [1,2],
+        [1,2,3],
+        [1,2,3,4],
+        [1,2,3,4,5],
+        [1,2,3,4,5,6,],
+        [1,2,3,4,5,6,7],
+        [1,2,3,4,5,6,7,8],
+        # [1,2,3,4,5,7,8]
     ]
     
     # 用于收集所有实验结果的列表
@@ -262,3 +250,83 @@ if __name__ == "__main__":
         f.write(final_report_str)
         
     print(f"\n[INFO] 汇总日志已保存至: {filepath}")
+
+
+# if __name__ == "__main__":
+#     import datetime 
+    
+#     # 1. 修改数据集名称 (必须与 DataGenerator 生成的文件夹名一致)
+#     dataset = 'Ottawa' 
+    
+#     dist_map_name = 'FIW'
+#     dist_map = {dist_map_name: find_nearest_neighbors_weighted_feature}
+#     neighbor_num = 15
+    
+#     # 2. 修改所有工况列表 (Ottawa 只有 A,B,C,D -> WC1, WC2, WC3, WC4)
+#     all_wcs = [1, 2, 3, 4]
+    
+#     # 3. 修改训练场景组合 (注意数字不能超过 4)
+#     all_train_scenarios = [
+#         [1],          # 单工况训练 (用A测B,C,D)
+#         [1, 2],       # 双工况训练 (用A,B测C,D)
+#         [1, 2, 3],    # 三工况训练 (用A,B,C测D)
+#         # 也可以做反向泛化，例如用 D 测 A
+#         # [4] 
+#     ]
+    
+#     # 用于收集所有实验结果的列表
+#     experiment_logs = []
+    
+#     # --- 开始大循环 ---
+#     for train_nums in all_train_scenarios:
+#         # 自动计算测试集：在 all_wcs 里，但不在训练集里的
+#         test_wcs = [wc for wc in all_wcs if wc not in train_nums]
+        
+#         print(f"\n{'='*60}")
+#         print(f"🚀 大实验启动：训练集组合 = {train_nums}")
+#         print(f"{'='*60}")
+        
+#         scenario_accuracies = []
+        
+#         for test_wc in test_wcs:
+#             print(f"\n>>> [当前配置] 训练: {train_nums} | 测试: WC{test_wc}")
+#             # 获取准确率
+#             acc = pipeline(dataset, train_nums, test_wc, dist_map, neighbor_num)
+            
+#             # 记录单次结果
+#             log_str = f"Train: {train_nums} | Test: WC{test_wc} | Accuracy: {acc:.2f}%"
+#             experiment_logs.append(log_str)
+#             scenario_accuracies.append(acc)
+        
+#         # 记录该场景的平均准确率
+#         avg_acc = np.mean(scenario_accuracies) if scenario_accuracies else 0
+#         experiment_logs.append(f"--- Scenario Average (Train {train_nums}): {avg_acc:.2f}% ---\n")
+
+#     # --- 实验结束，保存汇总结果 (代码保持不变) ---
+#     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+#     log_dir = "result/log"
+#     os.makedirs(log_dir, exist_ok=True)
+#     filename = f"{dataset}_{dist_map_name}_{timestamp}.txt"
+#     filepath = os.path.join(log_dir, filename)
+    
+#     final_report = []
+#     final_report.append("="*60)
+#     final_report.append(f"实验汇总报告")
+#     final_report.append(f"时间: {timestamp}")
+#     final_report.append(f"数据集: {dataset}")
+#     final_report.append(f"距离度量: {dist_map_name}")
+#     final_report.append(f"邻居数: {neighbor_num}")
+#     final_report.append("="*60 + "\n")
+#     final_report.extend(experiment_logs)
+    
+#     final_report_str = "\n".join(final_report)
+    
+#     print("\n" + "#"*60)
+#     print("实验全部完成！汇总结果如下：")
+#     print("#"*60)
+#     print(final_report_str)
+    
+#     with open(filepath, 'w', encoding='utf-8') as f:
+#         f.write(final_report_str)
+        
+#     print(f"\n[INFO] 汇总日志已保存至: {filepath}")
