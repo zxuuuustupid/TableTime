@@ -58,7 +58,13 @@ def extract_advanced_features(time_series, fs=1000):
         
         # === [核心修改：在此处加入信号标准化] ===
         # 这一行能消除不同机器传感器增益、功率导致的幅值巨大差异
-        signal_data = (signal_data - np.mean(signal_data)) / (np.std(signal_data) + 1e-10)
+        # --- 修改前 ---
+# signal_data = (signal_data - np.mean(signal_data)) / (np.std(signal_data) + 1e-10)
+
+        # --- 修改后 (保留一部分幅值差异，同时消除增益偏移) ---
+        # 使用全局平均标准差的缩放，或者只除以标准差的对数
+        std_val = np.std(signal_data)
+        signal_data = (signal_data - np.mean(signal_data)) / (np.log1p(std_val) + 1.0)
         # =====================================
 
         # 随后的时域特征（均值、标准差、最大值等）将基于标准化后的信号计算
@@ -94,49 +100,47 @@ def extract_advanced_features(time_series, fs=1000):
         for j in range(i+1, n_channels):
             corr = np.corrcoef(time_series[:, i], time_series[:, j])[0, 1]
             correlation_features.append(corr if not np.isnan(corr) else 0)
+
+        # --- 在函数 return 之前插入 ---
+    # 对始终为正的统计特征进行对数处理，减少离群值影响
+    # 假设 features 是你最后拼接好的数组
+    # 可以针对前几个时域特征做处理，比如：
+    all_features = np.array(all_features)
+    # 对 峭度、脉冲因子、峰值因子等(通常是大于0的)取对数
+    # 假设索引 0, 2, 5, 6, 7 是这些特征：
+    indices_to_log = [2, 5, 6, 7] 
+    all_features[indices_to_log] = np.log1p(np.abs(all_features[indices_to_log]))
             
     return np.concatenate([np.array(all_features), np.array(correlation_features)])
 
 def find_nearest_neighbors_weighted_feature(train_data, train_labels, test_data, num_neighbors):
-    print("Extracting advanced features...")
+    print("Extracting features...")
     train_features = np.array([extract_advanced_features(seq) for seq in tqdm(train_data, desc="Train Feat")])
     test_features = np.array([extract_advanced_features(seq) for seq in tqdm(test_data, desc="Test Feat")])
 
-    # --- [核心修改 1：独立标准化] ---
-    # 训练集用自己的均值方差，测试集也用自己的均值方差
-    # 这一步能强行抵消掉不同机器带来的全局特征偏移
-    train_features_scaled = StandardScaler().fit_transform(train_features)
-    test_features_scaled = StandardScaler().fit_transform(test_features)
+    # --- 1. 统一标准化（必须） ---
+    scaler = StandardScaler()
+    train_features_scaled = scaler.fit_transform(train_features)
+    test_features_scaled = scaler.transform(test_features)
     
-    print("Calculating supervised feature weights...")
-    unique_classes = np.unique(train_labels)
-    n_features = train_features_scaled.shape[1]
-    feature_weights = np.zeros(n_features)
+    # --- 2. 核心改动：放弃复杂的权重，回归本质 ---
+    # 在多工况下，Fisher Score 往往会失效。我们改用“方差平滑权重”
+    # 只压低那些完全是噪声（方差极大且无规律）的特征
+    feat_std = np.std(train_features_scaled, axis=0)
+    feature_weights = 1.0 / (feat_std + 0.5)  # 简单的倒数平滑
+    feature_weights = feature_weights / np.max(feature_weights) 
+
+    # 如果你怀疑权重还是有问题，可以直接强制所有权重为 1：
+    # feature_weights = np.ones(train_features_scaled.shape[1]) 
     
-    for label in unique_classes:
-        class_mask = (train_labels == label)
-        class_data = train_features_scaled[class_mask]
-        
-        if len(class_data) > 1:
-            class_var = np.var(class_data, axis=0)
-            # --- [核心修改 2：增大平滑项] ---
-            # 跨机器时，权重不能给得太极端，0.1 是平衡鲁棒性的经验值
-            weight = 1.0 / (class_var + 0.2) 
-            feature_weights += weight
-    
-    feature_weights = feature_weights / len(unique_classes)
-    feature_weights = feature_weights / (np.max(feature_weights) + 1e-10)
-    
-    print("Applying feature weights...")
     train_weighted = train_features_scaled * feature_weights
     test_weighted = test_features_scaled * feature_weights
     
-    print(f"Searching for {num_neighbors} nearest neighbors...")
-    # --- [核心修改 3：改用余弦距离] ---
-    # metric='cosine' 只看特征向量的方向，不看长度，对跨机器环境极其有效
-    # nbrs = NearestNeighbors(n_neighbors=num_neighbors, algorithm='auto', metric='cosine', n_jobs=-1)
-    
-    nbrs = NearestNeighbors(n_neighbors=num_neighbors, metric='cosine', n_jobs=-1)
+    # --- 3. 核心改动：改回欧氏距离 ---
+    # 当使用 StandardScaler 后，数据中心在 0 点。
+    # 余弦距离对中心点附近的数据极其敏感，会导致识别混乱。欧氏距离在此时更稳定。
+    print(f"Searching for {num_neighbors} neighbors using Euclidean distance...")
+    nbrs = NearestNeighbors(n_neighbors=num_neighbors, metric='euclidean', n_jobs=-1)
     nbrs.fit(train_weighted)
     
     distances, indices = nbrs.kneighbors(test_weighted)
@@ -200,18 +204,29 @@ def run_retrieval():
     INDEX_ROOT = os.path.join(ROOT, "data_index")
     NUM_NEIGHBORS = 5
     
-    # 1. 定义源（训练集/检索库）
-    # 假设使用 BJTU WC1 作为源
-    source_name = "BJTU_leftaxlebox/WC1"
-    train_x_path = os.path.join(DATA_ROOT, source_name, "X_train.npy")
-    train_y_path = os.path.join(DATA_ROOT, source_name, "y_train.npy")
+    # --- 修改部分：循环加载所有 WC 工况并合并 ---
+    source_category = "BJTU_leftaxlebox"
+    all_X_train = []
+    all_y_train = []
     
-    if not os.path.exists(train_x_path):
-        print(f"错误: 找不到源数据 {train_x_path}")
+    print(f"正在合并 {source_category} 的所有源域工况 (WC1-WC9)...")
+    for i in range(1, 10):
+        wc_path = os.path.join(DATA_ROOT, source_category, f"WC{i}")
+        tx_p = os.path.join(wc_path, "X_train.npy")
+        ty_p = os.path.join(wc_path, "y_train.npy")
+        
+        if os.path.exists(tx_p):
+            all_X_train.append(np.load(tx_p))
+            all_y_train.append(np.load(ty_p))
+    
+    if not all_X_train:
+        print("错误: 未找到任何源域数据")
         return
 
-    X_train = np.load(train_x_path)
-    y_train = np.load(train_y_path)
+    # 合并数组
+    X_train = np.vstack(all_X_train)
+    y_train = np.concatenate(all_y_train)
+    source_name = f"{source_category}_ALL_WC" # 更新标识名
     
     # 2. 定义所有需要查询的目标（测试集）
     # 包括 BJTU 自己的验证集和 Ottawa 的验证集

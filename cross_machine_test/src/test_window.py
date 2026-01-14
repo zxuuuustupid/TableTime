@@ -107,7 +107,7 @@ class MultiClassDataGenerator:
 if __name__ == "__main__":
     # 统一的一级目录
     ROOT = "cross_machine_test"
-    BJTU_WC_LIST_NUM = [1]
+    BJTU_WC_LIST_NUM = [1,2,3,4,5,6,7,8,9]
     # 故障对齐列表
     FAULT_TYPES = ['H', 'IF', 'OF', 'BF'] 
     WIN_SET = {"size": 2048, "overlap_rate": 0.0}
