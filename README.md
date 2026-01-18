@@ -1,4 +1,6 @@
-# TableTime: An Agentic Framework for Time Series Classification via LLM-driven Code Generation
+# [FAILED] TableTime: An Agentic Framework for Time Series Classification via LLM-driven Code Generation
+
+失败了，没卡
 
 This project introduces **TableTime**, a novel, training-free framework that reframes Multivariate Time Series (MTS) classification. We reformulate the task as a two-stage reasoning process executed by a Large Language Model (LLM) acting as an autonomous agent. Instead of inefficiently feeding raw numerical data into the LLM's context window, our approach leverages the model's advanced code generation and logical inference capabilities to achieve high-performance, interpretable, and token-efficient classification.
 
